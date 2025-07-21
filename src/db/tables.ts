@@ -4,7 +4,7 @@ export const lobbies = `CREATE TABLE IF NOT EXISTS lobbies (
    room_id INT NOT NULL,
    start_delay INT NOT NULL,
    end_delay INT NOT NULL,
-   result INT NOT NULL DEFAULT 0,
+   result varchar(255) NOT NULL,
    created_at datetime DEFAULT CURRENT_TIMESTAMP
  );`
 
@@ -15,7 +15,7 @@ export const bets = `CREATE TABLE IF NOT EXISTS bets (
    user_id varchar(255) NOT NULL,
    operator_id varchar(255) DEFAULT NULL,
    bet_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-   chip INT DEFAULT NULL,
+   user_bets text NOT NULL,
    room_id INT NOT NULL,
    created_at datetime DEFAULT CURRENT_TIMESTAMP
  );`
@@ -28,10 +28,9 @@ export const settlement = `CREATE TABLE IF NOT EXISTS settlement (
    user_id varchar(255) NOT NULL,
    operator_id varchar(255) DEFAULT NULL,
    bet_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-   chip INT DEFAULT NULL,
+   user_bets text NOT NULL,
    room_id INT NOT NULL,
-   winning_number INT NOT NULL,
-   max_mult DECIMAL(10, 2) DEFAULT 0.00,
+   result varchar(255) NOT NULL,
    win_amount decimal(10, 2) DEFAULT 0.00,
    created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP
  );`

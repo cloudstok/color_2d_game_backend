@@ -4,13 +4,11 @@ import { addSettleBet, insertBets } from './bets-db';
 import { roomPlayerCount } from '../lobbies/lobby-event';
 import { appConfig } from '../../utilities/app-config';
 import { setCache, getCache, deleteCache } from '../../utilities/redis-connection';
-import { logEventAndEmitResponse, getUserIP, getBetResult, roomDetails, getRoomsDetails } from '../../utilities/helper-function';
+import { logEventResponse, getUserIP, getBetResult, roomDetails, getRoomsDetails, eventEmitter } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
 const logger = createLogger('Bets', 'jsonl');
 const settlBetLogger = createLogger('Settlement', 'jsonl');
-const failedBetsLogger = createLogger('userFailedBets', 'plain');
-const creditQueueLogger = createLogger('CreditQueue', 'jsonl');
 const erroredLogger = createLogger('ErrorData', 'plain');
 const numberChips = [1, 2, 3, 4, 5, 6];
 
@@ -24,25 +22,31 @@ export const setCurrentLobby = (roomId: number, data: CurrentLobbyData): void =>
 export const joinRoom = async (socket: Socket, roomId: string) => {
     try {
         const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
+
         if (!stringifiedPlayerDetails) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Player details not found' } });
+            logEventResponse({ roomId }, 'Player details not found', 'jnRm');
+            eventEmitter(socket, 'betError', { message: 'Player details not found' });
             return;
         };
+
         const playerDetails: FinalUserData = JSON.parse(stringifiedPlayerDetails);
         const { user_id, operatorId } = playerDetails;
         const isPlayerExistInRoom = await getCache(`rm-${operatorId}:${user_id}`);
 
         if (isPlayerExistInRoom) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Player already exist in another room' } });
+            logEventResponse({ roomId, ...playerDetails }, 'Player already exist in another room', 'jnRm');
+            eventEmitter(socket, 'betError', { message: 'Player already exist in another room' });
             return;
         };
+
         roomPlayerCount[Number(roomId)]++;
         socket.join(roomId);
         await setCache(`rm-${operatorId}:${user_id}`, roomId);
-        socket.emit('message', { eventName: 'jnRm', data: { message: 'Room joined successfully', roomId } });
+        eventEmitter(socket, 'jnRm', { message: 'Room joined successfully', roomId });
         return;
     } catch (err) {
-        socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to join room' } });
+        logEventResponse({ roomId }, 'Something went wrong, unable to join room', 'jnRm');
+        eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to join room' });
         socket.disconnect(true);
         return;
     }
@@ -52,23 +56,26 @@ export const exitRoom = async (socket: Socket, roomId: string) => {
     try {
         const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
         if (!stringifiedPlayerDetails) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Player details not found' } });
+            logEventResponse({ roomId }, 'Player details not found', 'exRm');
+            eventEmitter(socket, 'betError', { message: 'Player details not found' });
             return;
         };
         const playerDetails: FinalUserData = JSON.parse(stringifiedPlayerDetails);
         const { user_id, operatorId } = playerDetails;
         const isPlayerExistInRoom = await getCache(`rm-${operatorId}:${user_id}`);
         if (!isPlayerExistInRoom) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Player does not belong to room' } });
+            logEventResponse({ roomId, ...playerDetails }, 'Player does not belong to room', 'exRm');
+            eventEmitter(socket, 'betError', { message: 'Player does not belong to room' });
             return;
         };
         socket.leave(roomId);
         roomPlayerCount[Number(roomId)]--
         await deleteCache(`rm-${operatorId}:${user_id}`);
-        socket.emit('message', { eventName: 'lvRm', data: { message: 'Room left successfully', roomId } });
+        eventEmitter(socket, 'lvRm', { message: 'Room left successfully', roomId });
         return;
     } catch (err) {
-        socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to leave room' } });
+        logEventResponse({ roomId }, 'Something went wrong, unable to leave room', 'exRm');
+        eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to leave room' });
         socket.disconnect(true);
         return;
     }
@@ -88,23 +95,23 @@ export const disConnect = async (socket: Socket) => {
             return;
         }
     } catch (err) {
-        socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to disconnect' } });
+        eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to disconnect' });
         return;
     }
 };
 
 export const reconnect = async (socket: Socket, playerDetails: FinalUserData) => {
     try {
-        socket.emit('message', { eventName: 'rmDtl', data: { halls: getRoomsDetails() } });
+        eventEmitter(socket, 'rmDtl', { halls: getRoomsDetails() });
         const { user_id, operatorId } = playerDetails;
         const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
         if (existingRoom) {
             roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
-            socket.emit('message', { eventName: 'rn', data: { message: 'redirected to existing room', roomId: existingRoom } });
+            eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom });
         };
     } catch (err) {
-        socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to connect' } });
+        eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to connect' });
         socket.disconnect(true);
         return;
     }
@@ -114,7 +121,9 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
     try {
         const playerDetailsStr = await getCache(`PL:${socket.id}`);
         if (!playerDetailsStr) {
-            return socket.emit('message', { eventName: 'betError', data: { message: 'Invalid Player Details', status: false } });
+            logEventResponse({ betData }, 'Player details not found', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Player details not found' });
+            return;
         }
 
         const parsedPlayerDetails: PlayerDetail = JSON.parse(playerDetailsStr);
@@ -125,19 +134,22 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         const currentLobbyData = lobbies[roomId];
 
         if (!currentLobbyData) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Invalid lobby id passed', status: false } });
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid lobby id passed', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Invalid lobby id passed' });
             return;
         };
 
         if (currentLobbyData.lobbyId != lobby_id) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Invalid lobby id passed', status: false } });
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid lobby id passed', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Invalid lobby id passed' });
             return;
         };
 
         const timeDiff = (Date.now() - time) / 1000;
 
         if (timeDiff < 15 || currentLobbyData.status != 1) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Lobby timed out', status: false } });
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Lobby timed out', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Lobby timed out' });
             return;
         };
 
@@ -148,7 +160,8 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         const betObj: BetsObject = { id, bet_id, token, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
         const roomData = roomDetails.find(room => room.roomId == roomId);
         if (!roomData) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Invalid Room', status: false } });
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid Room', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Invalid Room' });
             return;
         }
         for (const bet of userBets) {
@@ -178,12 +191,14 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         };
 
         if (isBetInvalid) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Invalid Bet', status: false } });
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid Bet', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Invalid Bet' });
             return;
         };
 
         if (ttlBtAmt > Number(balance)) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Insufficient Balance', status: false } });
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Insufficient Balance', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Insufficient Balance' });
             return;
         };
         betObj['totalBetAmt'] = ttlBtAmt;
@@ -197,7 +212,8 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         }, "DEBIT", { game_id, operatorId, token });
 
         if (!webhookData.status) {
-            socket.emit('message', { eventName: 'betError', data: { message: 'Bet Cancelled By Upstream Server', status: false } });
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Bet Cancelled By Upstream Server', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Bet Cancelled By Upstream Server' });
             return;
         };
         betObj.txn_id = webhookData.txn_id;
@@ -210,8 +226,9 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
 
         parsedPlayerDetails.balance = Number(Number(balance) - ttlBtAmt).toFixed(2);
         await setCache(`PL:${socket.id}`, JSON.stringify(parsedPlayerDetails));
-        socket.emit('message', { eventName: "info", data: { user_id, operator_id: operatorId, balance: parsedPlayerDetails.balance, avtr: parsedPlayerDetails.image } });
-        socket.emit('message', { eventName: "bet", data: { message: "Bet Placed successfully" } });
+        eventEmitter(socket, 'info', { user_id, operator_id: operatorId, balance: parsedPlayerDetails.balance, avtr: parsedPlayerDetails.image });
+        eventEmitter(socket, 'bet', { message: "Bet Placed successfully" });
+        return;
     } catch (err) {
         erroredLogger.error(betData, 'Bet cannot be placed', err);
         socket.emit('message', { eventName: 'betError', data: { message: 'Bet cannot be placed', status: false } });
@@ -230,6 +247,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
         for (const betData of bets) {
             const { bet_id, socket_id, game_id, txn_id, userBets, ip, token, totalBetAmt } = betData;
             const [_, lobby_id, user_id, operator_id] = bet_id.split(':');
+            const socket = io.sockets.sockets.get(socket_id);
             let finalAmount = 0;
             let totalMultiplier = 0;
             const betResults: BetResult[] = [];
@@ -265,21 +283,17 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
                     parsedPlayerDetails.balance = Number(Number(parsedPlayerDetails.balance) + finalAmount).toFixed(2);
                     await setCache(`PL:${socket_id}`, JSON.stringify(parsedPlayerDetails));
                     setTimeout(() => {
-                        io.to(socket_id).emit('message', {
-                            eventName: "info",
-                            data: {
-                                user_id,
-                                operator_id,
-                                balance: parsedPlayerDetails.balance,
-                                avtr: parsedPlayerDetails.image
-                            }
+                        eventEmitter(socket, 'info', {
+                            user_id,
+                            operator_id,
+                            balance: parsedPlayerDetails.balance,
+                            avtr: parsedPlayerDetails.image
                         });
                     }, 500);
-                }
-
-                io.to(socket_id).emit('message', { eventName: 'settlement', data: { message: `You Win ${winAmount}`, mywinningAmount: winAmount, status: 'WIN', roundResult: result, betResults, lobby_id } });
+                };
+                eventEmitter(socket, 'settlement', { message: `You Win ${winAmount}`, mywinningAmount: winAmount, status: 'WIN', roundResult: result, betResults, lobby_id });
             } else {
-                io.to(socket_id).emit('message', { eventName: 'settlement', data: { message: `You loss ${totalBetAmt}`, lossAmount: totalBetAmt, status: 'LOSS', roundResult: result, betResults, lobby_id } });
+                eventEmitter(socket, 'settlement', { message: `You loss ${totalBetAmt}`, lossAmount: totalBetAmt, status: 'LOSS', roundResult: result, betResults, lobby_id });
             }
         }
 

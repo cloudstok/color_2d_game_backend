@@ -84,7 +84,7 @@ export interface AppConfig {
 };
 
 export type WebhookKey = 'CREDIT' | 'DEBIT';
-export type BetEvent = 'bet';
+export type BetEvent = 'bet' | 'jnRm' | 'exRm';
 
 export interface WebhookData {
     amount?: string | number | undefined;

@@ -3,9 +3,10 @@ import { createLogger } from './logger';
 import { BetEvent, BetResult, WinningDetails } from '../interfaces';
 import { roomPlayerCount } from '../module/lobbies/lobby-event';
 const failedBetLogger = createLogger('failedBets', 'jsonl');
+const failedJoinLogger = createLogger('failedJoinRoom', 'jsonl');
+const failedExitLogger = createLogger('failedExitRoom', 'jsonl');
 
-export const logEventAndEmitResponse = (
-    socket: Socket,
+export const logEventResponse = (
     req: unknown,
     res: string,
     event: BetEvent
@@ -13,10 +14,22 @@ export const logEventAndEmitResponse = (
     const logData = JSON.stringify({ req, res });
     if (event === 'bet') {
         failedBetLogger.error(logData);
-    }
-
-    socket.emit('betError', res);
+    };
+    if (event === 'jnRm') {
+        failedJoinLogger.error(logData);
+    };
+    if (event == 'exRm') {
+        failedExitLogger.error(logData);
+    };
 };
+
+export const eventEmitter = (
+    socket: Socket | undefined,
+    eventName: string,
+    data: any
+): void => {
+    if (socket) socket.emit('message', { eventName, data });
+}
 
 export const getUserIP = (socket: any): string => {
     const forwardedFor = socket.handshake.headers?.['x-forwarded-for'];
@@ -60,6 +73,10 @@ interface SingleRoomDetail {
     chips: number[];
     min: number;
     max: number;
+    clrMax: number;
+    clrMin: number;
+    cmbMax: number;
+    cmbMin: number;
     plCnt: number;
 };
 
@@ -69,6 +86,10 @@ export const roomDetails: SingleRoomDetail[] = [
         chips: [50, 100, 200, 300, 500, 750],
         min: 50,
         max: 500,
+        clrMax: 500,
+        clrMin: 50,
+        cmbMax: 200,
+        cmbMin: 50,
         plCnt: 0
     },
     {
@@ -76,6 +97,10 @@ export const roomDetails: SingleRoomDetail[] = [
         chips: [100, 200, 300, 500, 750, 1250],
         min: 100,
         max: 1250,
+        clrMax: 1250,
+        clrMin: 100,
+        cmbMax: 500,
+        cmbMin: 100,
         plCnt: 0
     },
     {
@@ -83,6 +108,10 @@ export const roomDetails: SingleRoomDetail[] = [
         chips: [500, 750, 1000, 2000, 3000, 5000],
         min: 500,
         max: 5000,
+        clrMax: 5000,
+        clrMin: 500,
+        cmbMax: 2000,
+        cmbMin: 500,
         plCnt: 0
     },
     {
@@ -90,6 +119,10 @@ export const roomDetails: SingleRoomDetail[] = [
         chips: [1000, 2000, 3000, 5000, 7500, 10000],
         min: 1000,
         max: 12500,
+        clrMax: 12500,
+        clrMin: 1000,
+        cmbMax: 5000,
+        cmbMin: 1000,
         plCnt: 0
     }
 ];
