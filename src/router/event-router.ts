@@ -1,6 +1,7 @@
-import { Server } from 'socket.io';
-import { initLottery } from '../module/lobbies/lobby-event';
+import { Server, Socket } from 'socket.io';
+import { BetReqData } from '../interfaces';
+import { placeBet } from '../module/bets/bets-session';
 
-export const eventRouter = async (io: Server): Promise<void> => {
-  initLottery(io);
+export const eventRouter = async (socket: Socket): Promise<void> => {
+  socket.on('bet', async (data: BetReqData) => await placeBet(socket, data));
 };

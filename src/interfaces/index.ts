@@ -18,7 +18,7 @@ export interface LobbyData {
     roomId: number;
     start_delay: number;
     end_delay: number;
-    result: string[];
+    result: number[];
     time?: Date;
 };
 
@@ -30,7 +30,7 @@ export interface RawUserData {
 };
 
 export interface FinalUserData extends RawUserData {
-    userId: string;
+    user_id: string;
     id: string;
     game_id: string;
     token: string;
@@ -87,7 +87,7 @@ export type WebhookKey = 'CREDIT' | 'DEBIT';
 export type BetEvent = 'bet';
 
 export interface WebhookData {
-    amount: string | number | undefined;
+    amount?: string | number | undefined;
     txn_id?: string;
     ip?: string;
     game_id: string;
@@ -114,28 +114,29 @@ export interface LobbyInsertData {
 };
 
 export interface SingleBetObject {
-    id: string;
     bet_id: string;
-    token: string;
-    socket_id: string;
-    game_id: string;
     betAmount: number;
-    chip: string;
-    roomId: string;
-    txn_id?: string;
-    winning_number?: number;
-    max_mult?: string | number;
+    userBets: BetResult[];
+    result: number[];
+    roomId: number;
+    max_mult?: number;
     winAmount?: string | number;
 };
 
 export interface PlayerDetail {
     id: string;
-    userId: string;
+    user_id: string;
     operatorId: string;
     token: string;
     game_id: string;
     balance: number | string;
     socketId: string;
+};
+
+export interface PlayerDetails {
+    game_id: string;
+    operatorId: string;
+    token: string
 };
 
 export interface CurrentLobbyData {
@@ -159,3 +160,61 @@ export interface WinningDetails {
     color: string;
     winningNumber: number;
 }
+
+export interface ReqData {
+    chip: string;
+    btAmt: number;
+};
+
+export interface BetReqData {
+    lobbyId: string;
+    userBets: ReqData[]
+};
+
+export type BetResult = {
+    chip: string;
+    btAmt: number;
+    winAmt: number;
+    mult: number;
+    status: 'win' | 'loss';
+};
+
+export interface UsersBet {
+    chip: string;
+    btAmt: number;
+};
+
+export interface BetsObject {
+    id: string;
+    bet_id: string;
+    token: string;
+    socket_id: string;
+    game_id: string;
+    roomId: number;
+    ip?: string;
+    userBets: UsersBet[];
+    resultData?: BetResult[],
+    totalBetAmt: number;
+    txn_id?: string;
+    result?: string;
+    status?: 'win' | 'loss';
+    win_amount?: number;
+};
+
+
+export interface BetsData {
+    id: string;
+    bet_amount?: number | string;
+    winning_amount?: number | string;
+    game_id: string;
+    user_id: string;
+    bet_id?: string;
+    txn_id?: string;
+    ip?: string;
+};
+
+export interface AccountsResult {
+    txn_id?: string;
+    status: boolean;
+    type: WebhookKey
+};

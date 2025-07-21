@@ -1,6 +1,7 @@
 import { Socket } from 'socket.io';
 import { createLogger } from './logger';
-import { BetEvent, WinningDetails } from '../interfaces';
+import { BetEvent, BetResult, WinningDetails } from '../interfaces';
+import { roomPlayerCount } from '../module/lobbies/lobby-event';
 const failedBetLogger = createLogger('failedBets', 'jsonl');
 
 export const logEventAndEmitResponse = (
@@ -14,83 +15,77 @@ export const logEventAndEmitResponse = (
         failedBetLogger.error(logData);
     }
 
-    socket.emit('message', {
-        eventName: 'betError',
-        data: { message: res, status: false }
-    });
+    socket.emit('betError', res);
 };
 
-
-export const colorMap: Record<number, string> = {
-    0: 'rd-vl',
-    1: 'gr',
-    2: 'rd',
-    3: 'gr',
-    4: 'rd',
-    5: 'gr-vl',
-    6: 'rd',
-    7: 'gr',
-    8: 'rd',
-    9: 'gr'
-};
-
-export const colorChips: Record<number, string> = {
-    10: 'gr',
-    11: 'vl',
-    12: 'rd'
-};
-
-
-const MULTIPLIERS = {
-    numberMatch: 9.0,
-    colorMatch: 2.0,
-    violetMatch: 4.5,
-    bonusMatch: 1.5
-};
-
-export const getPayoutMultiplier = (chip: string | number, winningNumber: string | number): number => {
-    const chipNum = Number(chip);
-    const winningNum = Number(winningNumber);
-
-    if (chipNum === winningNum) return MULTIPLIERS.numberMatch;
-
-    const chipColor = colorChips[chipNum];
-    const winningColor = colorMap[winningNum];
-    if (!chipColor || !winningColor) return 0;
-
-    if (winningColor === chipColor) return MULTIPLIERS.colorMatch;
-
-    if (winningColor.split('-').includes(chipColor)) {
-        return chipColor === 'vl' ? MULTIPLIERS.violetMatch : MULTIPLIERS.bonusMatch;
+export const getUserIP = (socket: any): string => {
+    const forwardedFor = socket.handshake.headers?.['x-forwarded-for'];
+    if (forwardedFor) {
+        const ip = forwardedFor.split(',')[0].trim();
+        if (ip) return ip;
     }
-
-    return 0;
+    return socket.handshake.address || '';
 };
 
+export const getBetResult = (btAmt: number, chip: string, result: number[]): BetResult => {
 
-export const getDetailsFromWinningNumber = (num: number): WinningDetails => {
-    const rawColor = colorMap[num];
-
-    let color: string;
-    switch (rawColor) {
-        case 'gr':
-            color = 'Green';
-            break;
-        case 'rd':
-            color = 'Red';
-            break;
-        case 'rd-vl':
-            color = 'Red-Violet';
-            break;
-        case 'gr-vl':
-            color = 'Green-Violet';
-            break;
-        default:
-            color = '';
-    }
-
-    return {
-        color,
-        winningNumber: num
+    const resultData: BetResult = {
+        chip,
+        btAmt,
+        winAmt: 0,
+        mult: 0.00,
+        status: 'loss'
     };
+
+    const chipData = chip.split('-').map(Number);
+    if (chipData.length == 1) {
+        if (result.includes(chipData[0])) {
+            resultData.mult = 2;
+            resultData.status = 'win';
+            resultData.winAmt = resultData.btAmt * resultData.mult;
+        }
+    };
+    if (chipData.length > 1) {
+        if (result.includes(chipData[0]) && result.includes(chipData[1])) {
+            resultData.mult = 4;
+            resultData.status = 'win';
+            resultData.winAmt = resultData.btAmt * resultData.mult;
+        }
+    }
+    return resultData;
 };
+
+
+export const roomDetails: {
+    [key: number]: {
+        chips: number[];
+        min: number;
+        max: number;
+        plCnt: number;
+    }
+} = {
+    101: {
+        chips: [50, 100, 200, 300, 500, 750],
+        min: 50,
+        max: 500,
+        plCnt: roomPlayerCount[101]
+    },
+    102: {
+        chips: [100, 200, 300, 500, 750, 1250],
+        min: 100,
+        max: 1250,
+        plCnt: roomPlayerCount[102]
+    },
+    103: {
+        chips: [500, 750, 1000, 2000, 3000, 5000],
+        min: 500,
+        max: 5000,
+        plCnt: roomPlayerCount[103]
+    },
+    104: {
+        chips: [1000, 2000, 3000, 5000, 7500, 10000],
+        min: 1000,
+        max: 12500,
+        plCnt: roomPlayerCount[104]
+    }
+}

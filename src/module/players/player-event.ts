@@ -23,14 +23,12 @@ export const getUserDataFromSource = async (
     const userData: RawUserData | undefined = response?.data?.user;
 
     if (userData) {
-      const userId = encodeURIComponent(userData.user_id);
       const { operatorId } = userData;
-      const id = `${operatorId}:${userId}`;
+      const id = `${operatorId}:${userData.user_id}`;
       const image = getImageValue(id);
 
       const finalData: FinalUserData = {
         ...userData,
-        userId,
         id,
         game_id,
         token,

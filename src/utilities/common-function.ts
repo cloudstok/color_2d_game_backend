@@ -2,7 +2,8 @@ import axios, { AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
 import { Socket } from 'socket.io';
 import { createLogger } from '../utilities/logger';
-import { PostResponse, WebhookBetObject, WebhookData, WebhookPostData } from '../interfaces';
+import { AccountsResult, BetsData, PlayerDetail, PlayerDetails, PostResponse, WebhookBetObject, WebhookData, WebhookKey, WebhookPostData } from '../interfaces';
+import { sendToQueue } from './amqp';
 
 const thirdPartyLogger = createLogger('ThirdPartyAPICalls', 'jsonl');
 const failedLogger = createLogger('FailedThirdPartyAPICalls', 'jsonl');
@@ -23,73 +24,83 @@ export function generateUUIDv7(): string {
   return uuid.join('-');
 }
 
-export const postDataToSourceForBet = async (data: WebhookPostData): Promise<PostResponse> => {
+export const updateBalanceFromAccount = async (data: BetsData, key: WebhookKey, playerDetails: PlayerDetails): Promise<AccountsResult> => {
   try {
-    return await new Promise((resolve, reject) => {
-      const { webhookData, token, socketId } = data;
-      const url = process.env.service_base_url;
+    const webhookData = await prepareDataForWebhook({ ...data, game_id: playerDetails.game_id }, key);
+    if (!webhookData) return { status: false, type: key };
 
-      const clientServerOptions: AxiosRequestConfig = {
-        method: 'POST',
-        url: `${url}/service/operator/user/balance/v2`,
-        headers: { token },
-        data: webhookData,
-        timeout: 10000
-      };
+    if (key === 'CREDIT') {
+      await sendToQueue('', 'games_cashout', JSON.stringify({ ...webhookData, operatorId: playerDetails.operatorId, token: playerDetails.token }));
+      return { status: true, type: key };
+    };
 
-      axios(clientServerOptions)
-        .then((result: any) => {
-          thirdPartyLogger.info(JSON.stringify({ req: data, res: result.data }));
-          resolve({ status: result.status, ...webhookData, socketId });
-        })
-        .catch((err: any) => {
-          console.error(`[ERR] received from upstream server`, err);
-          const response = err.response?.data || 'Something went wrong';
-          failedLogger.error(JSON.stringify({ req: { webhookData, token }, res: response }));
-          reject({ ...webhookData, socketId });
-        });
-    });
+    data.txn_id = webhookData.txn_id;
+    const sendRequest = await sendRequestToAccounts(webhookData, playerDetails.token);
+    if (!sendRequest) return { status: false, type: key };
+
+    return { status: true, type: key, txn_id: data.txn_id };
   } catch (err) {
-    console.error(`[ERR] while posting data to source is:::`, err);
-    failedLogger.error(JSON.stringify({ req: data, res: `Something went wrong` }));
-    throw err;
+    console.error(`Err while updating Player's balance is`, err);
+    return { status: true, type: key };
   }
-};
+}
 
-export const prepareDataForWebhook = async (
-  betObj: WebhookBetObject,
-  key: 'DEBIT' | 'CREDIT',
-  socket: Socket | null
-): Promise<WebhookData | false> => {
+export const sendRequestToAccounts = async (webhookData: WebhookData, token: string): Promise<Boolean> => {
   try {
-    const { lobby_id, betAmount, game_id, bet_id, final_amount, user_id, txnId } = betObj;
+    const url = process.env.service_base_url;
+    if (!url) throw new Error('Service base URL is not defined');
 
-    let userIP = socket?.handshake?.address || '';
-    const forwardedFor = socket?.handshake.headers['x-forwarded-for'];
-    if (forwardedFor) {
-      userIP = String(forwardedFor).split(',')[0].trim();
-    }
+    let clientServerOptions: AxiosRequestConfig = {
+      method: 'POST',
+      url: `${url}/service/operator/user/balance/v2`,
+      headers: {
+        token
+      },
+      data: webhookData,
+      timeout: 1000 * 5
+    };
 
-    const obj: WebhookData = {
-      amount: Number(betAmount).toFixed(2),
+    const data = (await axios(clientServerOptions))?.data;
+    thirdPartyLogger.info(JSON.stringify({ logId: generateUUIDv7(), req: clientServerOptions, res: data }));
+
+    if (!data.status) return false;
+
+    return true;
+  } catch (err: any) {
+    console.error(`Err while sending request to accounts is:::`, err?.response?.data);
+    failedLogger.error(JSON.stringify({ logId: generateUUIDv7(), req: { webhookData, token }, res: err?.response?.status }));
+    return false;
+  }
+}
+
+
+export const prepareDataForWebhook = async (betObj: BetsData, key: WebhookKey): Promise<WebhookData | false> => {
+  try {
+    let { id, bet_amount, winning_amount, game_id, user_id, txn_id, ip, bet_id } = betObj;
+
+    const amountFormatted = Number(bet_amount).toFixed(2);
+    let baseData: WebhookData = {
       txn_id: generateUUIDv7(),
-      ip: userIP,
+      ip,
       game_id,
       user_id: decodeURIComponent(user_id)
     };
 
-    if (key === 'DEBIT') {
-      obj.description = `${obj.amount} debited for Wingo game for Round ${lobby_id}`;
-      obj.bet_id = bet_id;
-      obj.txn_type = 0;
-    } else if (key === 'CREDIT') {
-      obj.amount = final_amount;
-      obj.txn_ref_id = txnId;
-      obj.description = `${final_amount} credited for Wingo game for Round ${lobby_id}`;
-      obj.txn_type = 1;
+    if (key == 'DEBIT') return {
+      ...baseData,
+      amount: amountFormatted,
+      description: `${Number(bet_amount).toFixed(2)} debited for Rapid Roulette game for Round ${id}`,
+      bet_id,
+      txn_type: 0
     }
-
-    return obj;
+    else if (key == 'CREDIT') return {
+      ...baseData,
+      amount: winning_amount,
+      txn_ref_id: txn_id,
+      description: `${Number(winning_amount).toFixed(2)} credited for Rapid Roulette game for Round ${id}`,
+      txn_type: 1
+    }
+    else return baseData;
   } catch (err) {
     console.error(`[ERR] while trying to prepare data for webhook is::`, err);
     return false;

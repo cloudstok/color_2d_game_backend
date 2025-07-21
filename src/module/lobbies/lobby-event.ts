@@ -4,7 +4,7 @@ import { createLogger } from '../../utilities/logger';
 import { LobbyData, LobbyStatusData } from '../../interfaces';
 import { setCurrentLobby, settleBet } from '../bets/bets-session';
 
-const logger = createLogger('Lottery', 'jsonl');
+const logger = createLogger('Color_Game_2D', 'jsonl');
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -15,20 +15,20 @@ export const roomPlayerCount: { [key: number]: number } = {
     104: 0
 };
 
+
 export const initLottery = async (io: IOServer): Promise<void> => {
     logger.info("lobby started");
     const delays: number[] = [101, 102, 103, 104];
     delays.forEach((roomId: number) => {
-        roomPlayerCount[roomId] = Math.floor(Math.random() * 51);
+        roomPlayerCount[roomId] = Math.floor(Math.random() * 31) + 30;
         initLobby(io, roomId);
     });
 };
 
-const getResult = (): string[] => {
-    const diceColors = ["yellow", "white", "pink", "blue", "red", "green"];
-    const resultData: string[] = [];
+const getResult = (): number[] => {
+    const resultData: number[] = [];
     while (resultData.length < 3) {
-        resultData.push(diceColors[Math.floor(Math.random() * diceColors.length)]);
+        resultData.push(Math.floor(Math.random() * 6) + 1);
     };
     return resultData;
 }
@@ -40,24 +40,24 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
 
     setCurrentLobby(roomId, recurLobbyData);
     let start_delay = 15;
-    const result: string[] = getResult();
+    const result: number[] = getResult();
     const end_delay = 6;
 
     for (let x = start_delay; x > 0; x--) {
-        io.to(lobbyId).emit("lottery", `${lobbyId}:${x}:STARTING`);
+        io.to(`${roomId}`).emit('message', { eventName: "color", data: { message: `${lobbyId}:${x}:STARTING` } });
         await sleep(1000);
     }
 
     recurLobbyData.status = 1;
     setCurrentLobby(roomId, recurLobbyData);
-    io.to(lobbyId).emit('lottery', `${lobbyId}:${JSON.stringify(result)}:RESULT`);
+    io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${JSON.stringify(result)}:RESULT` } });
 
-    await settleBet(io, result, lobbyId);
+    await settleBet(io, result, roomId);
 
     recurLobbyData.status = 2;
     setCurrentLobby(roomId, recurLobbyData);
     for (let z = 1; z <= end_delay; z++) {
-        io.to(lobbyId).emit("lottery", `${lobbyId}:${z}:ENDED`);
+        io.to(`${roomId}`).emit('message', { eventName: "color", data: { message: `${lobbyId}:${z}:ENDED` } });
         await sleep(1000);
     }
 
@@ -70,9 +70,9 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
         result
     };
 
-    io.to(lobbyId).emit("history", JSON.stringify({ roomId: history.roomId, result }));
+    io.to(`${roomId}`).emit('message', { eventName: "history", data: { message: JSON.stringify({ roomId: history.roomId, result }) } });
     logger.info(JSON.stringify(history));
-    await insertLobbies(history);
+    // await insertLobbies(history);
 
     return initLobby(io, roomId);
 };

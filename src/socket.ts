@@ -3,10 +3,11 @@ import { getUserDataFromSource } from './module/players/player-event';
 import { eventRouter } from './router/event-router';
 import { messageRouter } from './router/message-router';
 import { setCache, deleteCache } from './utilities/redis-connection';
-import { roomPlayerCount } from './module/lobbies/lobby-event';
+import { initLottery, roomPlayerCount } from './module/lobbies/lobby-event';
+import { reconnect } from './module/bets/bets-session';
 
 export const initSocket = (io: Server): void => {
-  eventRouter(io);
+  initLottery(io);
 
   io.on('connection', async (socket: Socket) => {
 
@@ -26,12 +27,13 @@ export const initSocket = (io: Server): void => {
       return;
     }
 
-    socket.emit('message', { eventName: "info", data: { user_id: userData.userId, operator_id: userData.operatorId, balance: userData.balance } });
+    socket.emit('message', { eventName: 'info', data: { user_id: userData.user_id, operator_id: userData.operatorId, balance: userData.balance } });
 
     await setCache(`PL:${socket.id}`, JSON.stringify({ ...userData, socketId: socket.id }), 3600);
 
-    messageRouter(io, socket);
-    socket.emit("rmplcnt", JSON.stringify(roomPlayerCount));
+    messageRouter(socket);
+    eventRouter(socket);
+    reconnect(socket, userData);
 
     socket.on('disconnect', async () => {
       await deleteCache(`PL:${socket.id}`);
