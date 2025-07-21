@@ -4,7 +4,7 @@ import { addSettleBet, insertBets } from './bets-db';
 import { roomPlayerCount } from '../lobbies/lobby-event';
 import { appConfig } from '../../utilities/app-config';
 import { setCache, getCache, deleteCache } from '../../utilities/redis-connection';
-import { logEventAndEmitResponse, getUserIP, getBetResult, roomDetails } from '../../utilities/helper-function';
+import { logEventAndEmitResponse, getUserIP, getBetResult, roomDetails, getRoomsDetails } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
 const logger = createLogger('Bets', 'jsonl');
@@ -95,14 +95,14 @@ export const disConnect = async (socket: Socket) => {
 
 export const reconnect = async (socket: Socket, playerDetails: FinalUserData) => {
     try {
+        socket.emit('message', { eventName: 'rmDtl', data: { halls: getRoomsDetails() } });
         const { user_id, operatorId } = playerDetails;
         const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
         if (existingRoom) {
             roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
             socket.emit('message', { eventName: 'rn', data: { message: 'redirected to existing room' } });
-        }
-        socket.emit('message', { eventName: 'rmDtl', data: roomDetails });
+        };
     } catch (err) {
         socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to connect' } });
         socket.disconnect(true);
@@ -146,7 +146,11 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         const userBets = betData.userBets;
         const bet_id = `BT:${lobby_id}:${user_id}:${operatorId}`;
         const betObj: BetsObject = { id, bet_id, token, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
-        const roomData = roomDetails[roomId];
+        const roomData = roomDetails.find(room => room.roomId == roomId);
+        if (!roomData) {
+            socket.emit('message', { eventName: 'betError', data: { message: 'Invalid Room', status: false } });
+            return;
+        }
         for (const bet of userBets) {
             const { chip, btAmt } = bet;
             ttlBtAmt += btAmt;
@@ -206,7 +210,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
 
         parsedPlayerDetails.balance = Number(Number(balance) - ttlBtAmt).toFixed(2);
         await setCache(`PL:${socket.id}`, JSON.stringify(parsedPlayerDetails));
-        socket.emit('message', { eventName: "info", data: { user_id, operator_id: operatorId, balance: parsedPlayerDetails.balance } });
+        socket.emit('message', { eventName: "info", data: { user_id, operator_id: operatorId, balance: parsedPlayerDetails.balance, avtr: parsedPlayerDetails.image } });
         socket.emit('message', { eventName: "bet", data: { message: "Bet Placed successfully" } });
     } catch (err) {
         erroredLogger.error(betData, 'Bet cannot be placed', err);
@@ -266,7 +270,8 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
                             data: {
                                 user_id,
                                 operator_id,
-                                balance: parsedPlayerDetails.balance
+                                balance: parsedPlayerDetails.balance,
+                                avtr: parsedPlayerDetails.image
                             }
                         });
                     }, 500);

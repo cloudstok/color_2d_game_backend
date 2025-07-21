@@ -131,6 +131,7 @@ export interface PlayerDetail {
     game_id: string;
     balance: number | string;
     socketId: string;
+    image: number;
 };
 
 export interface PlayerDetails {

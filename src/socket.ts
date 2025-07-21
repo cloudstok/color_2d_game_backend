@@ -27,7 +27,7 @@ export const initSocket = (io: Server): void => {
       return;
     }
 
-    socket.emit('message', { eventName: 'info', data: { user_id: userData.user_id, operator_id: userData.operatorId, balance: userData.balance } });
+    socket.emit('message', { eventName: 'info', data: { user_id: userData.user_id, operator_id: userData.operatorId, balance: userData.balance, avtr: userData.image } });
 
     await setCache(`PL:${socket.id}`, JSON.stringify({ ...userData, socketId: socket.id }), 3600);
 

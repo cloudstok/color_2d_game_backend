@@ -55,37 +55,49 @@ export const getBetResult = (btAmt: number, chip: string, result: number[]): Bet
     return resultData;
 };
 
+interface SingleRoomDetail {
+    roomId: number;
+    chips: number[];
+    min: number;
+    max: number;
+    plCnt: number;
+};
 
-export const roomDetails: {
-    [key: number]: {
-        chips: number[];
-        min: number;
-        max: number;
-        plCnt: number;
-    }
-} = {
-    101: {
+export const roomDetails: SingleRoomDetail[] = [
+    {
+        roomId: 101,
         chips: [50, 100, 200, 300, 500, 750],
         min: 50,
         max: 500,
-        plCnt: roomPlayerCount[101]
+        plCnt: 0
     },
-    102: {
+    {
+        roomId: 102,
         chips: [100, 200, 300, 500, 750, 1250],
         min: 100,
         max: 1250,
-        plCnt: roomPlayerCount[102]
+        plCnt: 0
     },
-    103: {
+    {
+        roomId: 103,
         chips: [500, 750, 1000, 2000, 3000, 5000],
         min: 500,
         max: 5000,
-        plCnt: roomPlayerCount[103]
+        plCnt: 0
     },
-    104: {
+    {
+        roomId: 104,
         chips: [1000, 2000, 3000, 5000, 7500, 10000],
         min: 1000,
         max: 12500,
-        plCnt: roomPlayerCount[104]
+        plCnt: 0
     }
+];
+
+export function getRoomsDetails() {
+    roomDetails.map(room => {
+        room['plCnt'] = roomPlayerCount[room.roomId];
+        return room;
+    });
+    return roomDetails;
 }
