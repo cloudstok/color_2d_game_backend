@@ -9,6 +9,7 @@ import { createLogger } from './utilities/logger';
 import { checkDatabaseConnection, createTables } from './utilities/db-connection';
 import { initializeRedis } from './utilities/redis-connection';
 import { connect } from './utilities/amqp';
+import { loadConfig } from './utilities/load-config';
 
 dotenv.config();
 const port = process.env.PORT || 4200;
@@ -16,7 +17,7 @@ const logger = createLogger('Server');
 
 const startServer = async () => {
     await Promise.all([checkDatabaseConnection(), initializeRedis(), connect(), createTables()]);
-
+    await loadConfig();
     const app = express();
     const server = http.createServer(app);
     const io = new SocketIOServer(server);

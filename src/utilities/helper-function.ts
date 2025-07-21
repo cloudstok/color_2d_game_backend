@@ -2,6 +2,7 @@ import { Socket } from 'socket.io';
 import { createLogger } from './logger';
 import { BetEvent, BetResult, WinningDetails } from '../interfaces';
 import { roomPlayerCount } from '../module/lobbies/lobby-event';
+import { variableConfig } from './load-config';
 const failedBetLogger = createLogger('failedBets', 'jsonl');
 const failedJoinLogger = createLogger('failedJoinRoom', 'jsonl');
 const failedExitLogger = createLogger('failedExitRoom', 'jsonl');
@@ -40,6 +41,11 @@ export const getUserIP = (socket: any): string => {
     return socket.handshake.address || '';
 };
 
+const mults = {
+    clrMult: 2,
+    combMult: 5
+}
+
 export const getBetResult = (btAmt: number, chip: string, result: number[]): BetResult => {
 
     const resultData: BetResult = {
@@ -53,14 +59,14 @@ export const getBetResult = (btAmt: number, chip: string, result: number[]): Bet
     const chipData = chip.split('-').map(Number);
     if (chipData.length == 1) {
         if (result.includes(chipData[0])) {
-            resultData.mult = 2;
+            resultData.mult = mults.clrMult;
             resultData.status = 'win';
             resultData.winAmt = resultData.btAmt * resultData.mult;
         }
     };
     if (chipData.length > 1) {
         if (result.includes(chipData[0]) && result.includes(chipData[1])) {
-            resultData.mult = 5;
+            resultData.mult = mults.combMult;
             resultData.status = 'win';
             resultData.winAmt = resultData.btAmt * resultData.mult;
         }
@@ -68,7 +74,7 @@ export const getBetResult = (btAmt: number, chip: string, result: number[]): Bet
     return resultData;
 };
 
-interface SingleRoomDetail {
+export interface SingleRoomDetail {
     roomId: number;
     chips: number[];
     min: number;
@@ -80,7 +86,7 @@ interface SingleRoomDetail {
     plCnt: number;
 };
 
-export const roomDetails: SingleRoomDetail[] = [
+const roomDetails: SingleRoomDetail[] = [
     {
         roomId: 101,
         chips: [50, 100, 200, 300, 500, 750],
@@ -127,10 +133,11 @@ export const roomDetails: SingleRoomDetail[] = [
     }
 ];
 
-export function getRoomsDetails() {
-    roomDetails.map(room => {
+export const getRooms = () => {
+    const roomData = variableConfig.games_templates && variableConfig.games_templates.length > 0 ? variableConfig.games_templates : roomDetails;
+    roomData.map(room => {
         room['plCnt'] = roomPlayerCount[room.roomId];
         return room;
     });
-    return roomDetails;
-}
+    return roomData;
+};

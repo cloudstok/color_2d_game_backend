@@ -4,7 +4,7 @@ import { addSettleBet, insertBets } from './bets-db';
 import { roomPlayerCount } from '../lobbies/lobby-event';
 import { appConfig } from '../../utilities/app-config';
 import { setCache, getCache, deleteCache } from '../../utilities/redis-connection';
-import { logEventResponse, getUserIP, getBetResult, roomDetails, getRoomsDetails, eventEmitter } from '../../utilities/helper-function';
+import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
 const logger = createLogger('Bets', 'jsonl');
@@ -43,6 +43,9 @@ export const joinRoom = async (socket: Socket, roomId: string) => {
         socket.join(roomId);
         await setCache(`rm-${operatorId}:${user_id}`, roomId);
         eventEmitter(socket, 'jnRm', { message: 'Room joined successfully', roomId });
+        lobbiesBets[Number(roomId)].forEach(e => {
+            if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
+        })
         return;
     } catch (err) {
         logEventResponse({ roomId }, 'Something went wrong, unable to join room', 'jnRm');
@@ -102,10 +105,13 @@ export const disConnect = async (socket: Socket) => {
 
 export const reconnect = async (socket: Socket, playerDetails: FinalUserData) => {
     try {
-        eventEmitter(socket, 'rmDtl', { halls: getRoomsDetails() });
+        eventEmitter(socket, 'rmDtl', { halls: getRooms() });
         const { user_id, operatorId } = playerDetails;
         const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
         if (existingRoom) {
+            lobbiesBets[Number(existingRoom)].forEach(e => {
+                if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
+            });
             roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
             eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom });
@@ -157,8 +163,8 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         let ttlBtAmt: number = 0;
         const userBets = betData.userBets;
         const bet_id = `BT:${lobby_id}:${user_id}:${operatorId}`;
-        const betObj: BetsObject = { id, bet_id, token, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
-        const roomData = roomDetails.find(room => room.roomId == roomId);
+        const betObj: BetsObject = { id, bet_id, user_id, operatorId, token, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
+        const roomData = getRooms().find(room => room.roomId == roomId);
         if (!roomData) {
             logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid Room', 'bet');
             eventEmitter(socket, 'betError', { message: 'Invalid Room' });
@@ -171,7 +177,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
 
             if (chips.length === 1) {
                 const singleChip = chips[0];
-                if ((!numberChips.includes(singleChip) && (btAmt < roomData.min || btAmt > roomData.max))) {
+                if ((!numberChips.includes(singleChip) && (btAmt < roomData.clrMin || btAmt > roomData.clrMax))) {
                     isBetInvalid = true;
                     break;
                 };
@@ -183,7 +189,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
                         isBetInvalid = true;
                     }
                 });
-                if (btAmt < appConfig.minBetAmount || btAmt > appConfig.maxBetAmount) {
+                if (btAmt < roomData.cmbMin || btAmt > roomData.cmbMax) {
                     isBetInvalid = true;
                     break;
                 }
