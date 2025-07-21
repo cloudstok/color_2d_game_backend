@@ -189,6 +189,7 @@ export interface BetsObject {
     id: string;
     bet_id: string;
     user_id: string;
+    operatorId: string;
     token: string;
     socket_id: string;
     game_id: string;
