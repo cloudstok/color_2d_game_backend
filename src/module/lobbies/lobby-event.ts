@@ -40,6 +40,7 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
 
     setCurrentLobby(roomId, recurLobbyData);
     let start_delay = 15;
+    const mid_delay = 6;
     const result: number[] = getResult();
     const end_delay = 6;
 
@@ -50,12 +51,22 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
 
     recurLobbyData.status = 1;
     setCurrentLobby(roomId, recurLobbyData);
-    io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${JSON.stringify(result)}:RESULT` } });
 
-    await settleBet(io, result, roomId);
+    for (let y = 1; y <= mid_delay; y++) {
+        io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${y}:CALCULATING` } })
+        await sleep(1000);
+    }
 
     recurLobbyData.status = 2;
     setCurrentLobby(roomId, recurLobbyData);
+    io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${JSON.stringify(result)}:RESULT` } });
+    await sleep(2000);
+
+    await settleBet(io, result, roomId);
+
+    recurLobbyData.status = 3;
+    setCurrentLobby(roomId, recurLobbyData);
+
     for (let z = 1; z <= end_delay; z++) {
         io.to(`${roomId}`).emit('message', { eventName: "color", data: { message: `${lobbyId}:${z}:ENDED` } });
         await sleep(1000);
