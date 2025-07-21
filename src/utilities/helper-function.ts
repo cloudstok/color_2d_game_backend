@@ -60,7 +60,7 @@ export const getBetResult = (btAmt: number, chip: string, result: number[]): Bet
     };
     if (chipData.length > 1) {
         if (result.includes(chipData[0]) && result.includes(chipData[1])) {
-            resultData.mult = 4;
+            resultData.mult = 5;
             resultData.status = 'win';
             resultData.winAmt = resultData.btAmt * resultData.mult;
         }

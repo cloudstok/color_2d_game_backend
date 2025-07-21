@@ -1,37 +1,32 @@
-import { SettlementData } from '../../interfaces';
+import { BetsObject, SettlementData, SingleBetObject } from '../../interfaces';
 import { write } from '../../utilities/db-connection';
 
 const SQL_INSERT_BETS =
-  'INSERT INTO bets (bet_id, lobby_id, user_id, operator_id, bet_amount, chip, room_id) VALUES(?,?,?,?,?,?,?)';
+  'INSERT INTO bets (bet_id, lobby_id, user_id, operator_id, bet_amount, user_bets, room_id) VALUES(?,?,?,?,?,?,?)';
 
-const SQL_INSERT_STATS =
-  'INSERT INTO round_stats (lobby_id, winning_number, total_win_count, total_bet_amount, total_cashout_amount) VALUES(?,?,?,?,?)';
-
-export const addSettleBet = async (settlements: SettlementData[]): Promise<void> => {
+export const addSettleBet = async (settlements: SingleBetObject[]): Promise<void> => {
   try {
     const finalData: (string | number | undefined)[][] = [];
 
     for (const settlement of settlements) {
-      const { bet_id, max_mult, winAmount, winning_number } = settlement;
+      const { bet_id, betAmount, winAmount, result, userBets, roomId } = settlement;
 
-      const [initial, lobby_id, roomId, user_id, operator_id, bet_amount, chip, identifier] =
-        bet_id.split(':');
+      const [_, lobby_id, user_id, operator_id] = bet_id.split(':');
 
       finalData.push([
         bet_id,
         lobby_id,
-        decodeURIComponent(user_id),
+        user_id,
         operator_id,
-        bet_amount,
-        chip,
-        Number(roomId),
-        winning_number,
-        max_mult,
-        winAmount,
+        betAmount,
+        JSON.stringify(userBets),
+        roomId,
+        JSON.stringify(result),
+        winAmount
       ]);
     }
 
-    const placeholders = finalData.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
+    const placeholders = finalData.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
     const SQL_SETTLEMENT = `
       INSERT INTO settlement (
         bet_id,
@@ -39,10 +34,9 @@ export const addSettleBet = async (settlements: SettlementData[]): Promise<void>
         user_id,
         operator_id,
         bet_amount,
-        chip,
+        user_bets,
         room_id,
-        winning_number,
-        max_mult,
+        result,
         win_amount
       ) VALUES ${placeholders}
     `;
@@ -56,19 +50,19 @@ export const addSettleBet = async (settlements: SettlementData[]): Promise<void>
   }
 };
 
-export const insertBets = async (bet_id: string): Promise<void> => {
+export const insertBets = async (betObj: BetsObject): Promise<void> => {
   try {
-    const [initial, lobby_id, roomId, user_id, operator_id, bet_amount, chip, identifier] =
-      bet_id.split(':');
+    const { bet_id, totalBetAmt, userBets, roomId } = betObj;
+    const [_, lobby_id, user_id, operator_id] = bet_id.split(':');
 
     await write(SQL_INSERT_BETS, [
       bet_id,
       lobby_id,
-      decodeURIComponent(user_id),
+      user_id,
       operator_id,
-      bet_amount,
-      chip,
-      Number(roomId),
+      totalBetAmt,
+      JSON.stringify(userBets),
+      roomId
     ]);
 
     console.info(`Bet placed successfully for user`, user_id);

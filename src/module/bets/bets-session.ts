@@ -222,7 +222,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         lobbiesBets[roomId].push(betObj);
         logger.info(JSON.stringify(betObj));
 
-        // await insertBets(betObj);
+        await insertBets(betObj);
 
         parsedPlayerDetails.balance = Number(Number(balance) - ttlBtAmt).toFixed(2);
         await setCache(`PL:${socket.id}`, JSON.stringify(parsedPlayerDetails));
@@ -249,13 +249,11 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
             const [_, lobby_id, user_id, operator_id] = bet_id.split(':');
             const socket = io.sockets.sockets.get(socket_id);
             let finalAmount = 0;
-            let totalMultiplier = 0;
             const betResults: BetResult[] = [];
             userBets?.forEach(({ btAmt, chip }) => {
                 const roundResult = getBetResult(btAmt, chip, result);
                 betResults.push(roundResult);
                 if (roundResult.mult > 0) {
-                    totalMultiplier += roundResult.status == 'win' ? roundResult.mult : 0;
                     finalAmount += roundResult.winAmt;
                 }
             });
@@ -266,11 +264,10 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
                 userBets: betResults,
                 roomId,
                 result,
-                max_mult: totalMultiplier > 0 ? totalMultiplier : 0.00,
                 winAmount: finalAmount > 0 ? finalAmount : 0.00,
             });
 
-            settlBetLogger.info(JSON.stringify({ betData, finalAmount, result, totalMultiplier }));
+            settlBetLogger.info(JSON.stringify({ betData, finalAmount, result }));
 
             if (finalAmount > 0) {
                 const winAmount = Number(finalAmount).toFixed(2);
@@ -298,7 +295,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
         }
 
 
-        // await addSettleBet(settlements);
+        await addSettleBet(settlements);
         delete lobbiesBets[roomId];
     } catch (error) {
         console.error('Error settling bets:', error);
