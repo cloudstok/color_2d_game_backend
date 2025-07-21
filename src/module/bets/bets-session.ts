@@ -39,7 +39,7 @@ export const joinRoom = async (socket: Socket, roomId: string) => {
         roomPlayerCount[Number(roomId)]++;
         socket.join(roomId);
         await setCache(`rm-${operatorId}:${user_id}`, roomId);
-        socket.emit('message', { eventName: 'jnRm', data: { message: 'Room joined successfully' } });
+        socket.emit('message', { eventName: 'jnRm', data: { message: 'Room joined successfully', roomId } });
         return;
     } catch (err) {
         socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to join room' } });
@@ -65,7 +65,7 @@ export const exitRoom = async (socket: Socket, roomId: string) => {
         socket.leave(roomId);
         roomPlayerCount[Number(roomId)]--
         await deleteCache(`rm-${operatorId}:${user_id}`);
-        socket.emit('message', { eventName: 'lvRm', data: { message: 'Room left successfully' } });
+        socket.emit('message', { eventName: 'lvRm', data: { message: 'Room left successfully', roomId } });
         return;
     } catch (err) {
         socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to leave room' } });
@@ -101,7 +101,7 @@ export const reconnect = async (socket: Socket, playerDetails: FinalUserData) =>
         if (existingRoom) {
             roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
-            socket.emit('message', { eventName: 'rn', data: { message: 'redirected to existing room' } });
+            socket.emit('message', { eventName: 'rn', data: { message: 'redirected to existing room', roomId: existingRoom } });
         };
     } catch (err) {
         socket.emit('message', { eventName: 'betError', data: { message: 'Something went wrong, unable to connect' } });
