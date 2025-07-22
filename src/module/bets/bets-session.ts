@@ -43,9 +43,11 @@ export const joinRoom = async (socket: Socket, roomId: string) => {
         socket.join(roomId);
         await setCache(`rm-${operatorId}:${user_id}`, roomId);
         eventEmitter(socket, 'jnRm', { message: 'Room joined successfully', roomId });
-        lobbiesBets[Number(roomId)].forEach(e => {
-            if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
-        })
+        if (lobbiesBets[Number(roomId)]) {
+            lobbiesBets[Number(roomId)].forEach(e => {
+                if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
+            })
+        };
         return;
     } catch (err) {
         logEventResponse({ roomId }, 'Something went wrong, unable to join room', 'jnRm');
@@ -109,9 +111,11 @@ export const reconnect = async (socket: Socket, playerDetails: FinalUserData) =>
         const { user_id, operatorId } = playerDetails;
         const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
         if (existingRoom) {
-            lobbiesBets[Number(existingRoom)].forEach(e => {
-                if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
-            });
+            if (lobbiesBets[Number(existingRoom)]) {
+                lobbiesBets[Number(existingRoom)].forEach(e => {
+                    if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
+                });
+            };
             roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
             eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom });
