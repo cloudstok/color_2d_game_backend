@@ -1,10 +1,10 @@
-import { Server as IOServer, Socket } from 'socket.io';
+import { Server as IOServer, Server, Socket } from 'socket.io';
 import { updateBalanceFromAccount } from '../../utilities/common-function';
 import { addSettleBet, insertBets } from './bets-db';
-import { roomPlayerCount } from '../lobbies/lobby-event';
+import { roomColorProbs, roomPlayerCount, roomWiseHistory } from '../lobbies/lobby-event';
 import { appConfig } from '../../utilities/app-config';
 import { setCache, getCache, deleteCache } from '../../utilities/redis-connection';
-import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms } from '../../utilities/helper-function';
+import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, getNumberPercentages } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
 const logger = createLogger('Bets', 'jsonl');
@@ -19,7 +19,7 @@ export const setCurrentLobby = (roomId: number, data: CurrentLobbyData): void =>
     lobbies[roomId] = data;
 };
 
-export const joinRoom = async (socket: Socket, roomId: string) => {
+export const joinRoom = async (io: Server, socket: Socket, roomId: string) => {
     try {
         const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
 
@@ -41,6 +41,7 @@ export const joinRoom = async (socket: Socket, roomId: string) => {
 
         roomPlayerCount[Number(roomId)]++;
         socket.join(roomId);
+        io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
         await setCache(`rm-${operatorId}:${user_id}`, roomId);
         eventEmitter(socket, 'jnRm', { message: 'Room joined successfully', roomId });
         if (lobbiesBets[Number(roomId)]) {
@@ -48,6 +49,9 @@ export const joinRoom = async (socket: Socket, roomId: string) => {
                 if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
             })
         };
+        setTimeout(() => {
+            eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(roomId)].filter((_, index) => index < 21), colorProbs: roomColorProbs[Number(roomId)] });
+        }, 1500);
         return;
     } catch (err) {
         logEventResponse({ roomId }, 'Something went wrong, unable to join room', 'jnRm');
@@ -57,7 +61,7 @@ export const joinRoom = async (socket: Socket, roomId: string) => {
     }
 };
 
-export const exitRoom = async (socket: Socket, roomId: string) => {
+export const exitRoom = async (io: Server, socket: Socket, roomId: string) => {
     try {
         const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
         if (!stringifiedPlayerDetails) {
@@ -75,6 +79,7 @@ export const exitRoom = async (socket: Socket, roomId: string) => {
         };
         socket.leave(roomId);
         roomPlayerCount[Number(roomId)]--
+        io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
         await deleteCache(`rm-${operatorId}:${user_id}`);
         eventEmitter(socket, 'lvRm', { message: 'Room left successfully', roomId });
         return;
@@ -86,7 +91,7 @@ export const exitRoom = async (socket: Socket, roomId: string) => {
     }
 };
 
-export const disConnect = async (socket: Socket) => {
+export const disConnect = async (io: Server, socket: Socket) => {
     try {
         const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
         if (stringifiedPlayerDetails) {
@@ -96,6 +101,7 @@ export const disConnect = async (socket: Socket) => {
             if (existingRoom) socket.leave(existingRoom);
             await deleteCache(`PL:${socket.id}`);
             roomPlayerCount[Number(existingRoom)]--;
+            io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
             socket.disconnect(true);
             return;
         }
@@ -105,7 +111,7 @@ export const disConnect = async (socket: Socket) => {
     }
 };
 
-export const reconnect = async (socket: Socket, playerDetails: FinalUserData) => {
+export const reconnect = async (io: Server, socket: Socket, playerDetails: FinalUserData) => {
     try {
         eventEmitter(socket, 'rmDtl', { halls: getRooms() });
         const { user_id, operatorId } = playerDetails;
@@ -118,7 +124,11 @@ export const reconnect = async (socket: Socket, playerDetails: FinalUserData) =>
             };
             roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
+            io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
             eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom });
+            setTimeout(() => {
+                eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 21), colorProbs: roomColorProbs[Number(existingRoom)] });
+            }, 1500);
         };
     } catch (err) {
         eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to connect' });

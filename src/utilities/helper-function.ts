@@ -3,6 +3,7 @@ import { createLogger } from './logger';
 import { BetEvent, BetResult, WinningDetails } from '../interfaces';
 import { roomPlayerCount } from '../module/lobbies/lobby-event';
 import { variableConfig } from './load-config';
+import { read } from './db-connection';
 const failedBetLogger = createLogger('failedBets', 'jsonl');
 const failedJoinLogger = createLogger('failedJoinRoom', 'jsonl');
 const failedExitLogger = createLogger('failedExitRoom', 'jsonl');
@@ -141,3 +142,44 @@ export const getRooms = () => {
     });
     return roomData;
 };
+
+export const historyStats = async () => {
+    try {
+        const historyData = await read(`SELECT room_id, result FROM lobbies ORDER BY created_at DESC LIMIT 400`);
+        const filteredData: { [key: number]: number[][] } = {};
+        historyData.map(e => {
+            const { room_id, result } = e;
+            if (!filteredData[room_id]) filteredData[room_id] = [JSON.parse(result)];
+            else filteredData[room_id].push(JSON.parse(result));
+        });
+        return filteredData;
+    } catch (err) {
+        console.error('Error fetching history is:::', err);
+        return false
+    }
+}
+
+export function getNumberPercentages(data: number[][]) {
+    const count: { [key: number]: number } = {
+        1: 0, 2: 0, 3: 0,
+        4: 0, 5: 0, 6: 0
+    };
+
+    let total = 0;
+
+    for (const row of data) {
+        for (const num of row) {
+            if (num >= 1 && num <= 6) {
+                count[num]++;
+                total++;
+            }
+        }
+    }
+
+    const percentages: { [key: number]: number } = {};
+    for (let i = 1; i <= 6; i++) {
+        percentages[i] = total > 0 ? (count[i] / total) * 100 : 0;
+    }
+
+    return percentages;
+}

@@ -31,13 +31,9 @@ export const initSocket = (io: Server): void => {
 
     await setCache(`PL:${socket.id}`, JSON.stringify({ ...userData, socketId: socket.id }), 3600);
 
-    messageRouter(socket);
-    eventRouter(socket);
-    reconnect(socket, userData);
-
-    socket.on('disconnect', async () => {
-      await deleteCache(`PL:${socket.id}`);
-    });
+    messageRouter(io, socket);
+    eventRouter(io, socket);
+    reconnect(io, socket, userData);
 
     socket.on('error', (error: Error) => {
       console.error(`Socket error: ${socket.id}. Error: ${error.message}`);

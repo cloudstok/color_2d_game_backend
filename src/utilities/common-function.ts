@@ -1,8 +1,7 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
-import { Socket } from 'socket.io';
 import { createLogger } from '../utilities/logger';
-import { AccountsResult, BetsData, PlayerDetail, PlayerDetails, PostResponse, WebhookBetObject, WebhookData, WebhookKey, WebhookPostData } from '../interfaces';
+import { AccountsResult, BetsData, PlayerDetails, WebhookData, WebhookKey } from '../interfaces';
 import { sendToQueue } from './amqp';
 
 const thirdPartyLogger = createLogger('ThirdPartyAPICalls', 'jsonl');

@@ -3,6 +3,7 @@ import { insertLobbies } from './lobbies-db';
 import { createLogger } from '../../utilities/logger';
 import { LobbyData, LobbyStatusData } from '../../interfaces';
 import { setCurrentLobby, settleBet } from '../bets/bets-session';
+import { getNumberPercentages, historyStats } from '../../utilities/helper-function';
 
 const logger = createLogger('Color_Game_2D', 'jsonl');
 
@@ -15,9 +16,39 @@ export const roomPlayerCount: { [key: number]: number } = {
     104: 0
 };
 
+export const roomWiseHistory: {
+    [key: number]: number[][]
+} = {
+    101: [],
+    102: [],
+    103: [],
+    104: []
+};
+
+export const roomColorProbs: { [key: number]: { [key: number]: number } } = {
+    101: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+    102: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+    103: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+    104: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
+};
+
+function updateProbs() {
+    for (let room in roomColorProbs) {
+        roomColorProbs[room] = getNumberPercentages(roomWiseHistory[room]);
+    }
+}
+
+async function generateStats() {
+    const historyDataFromDB: { [key: string]: number[][] } | false = await historyStats();
+    if (!historyDataFromDB) return;
+    for (let room in roomWiseHistory) {
+        roomWiseHistory[Number(room)] = historyDataFromDB[room];
+    };
+}
 
 export const initLottery = async (io: IOServer): Promise<void> => {
     logger.info("lobby started");
+    await generateStats();
     const delays: number[] = [101, 102, 103, 104];
     delays.forEach((roomId: number) => {
         roomPlayerCount[roomId] = Math.floor(Math.random() * 31) + 30;
@@ -41,8 +72,9 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
     setCurrentLobby(roomId, recurLobbyData);
     let start_delay = 15;
     const mid_delay = 6;
+    const resultDelay = 10;
     const result: number[] = getResult();
-    const end_delay = 6;
+    const end_delay = 5;
 
     for (let x = start_delay; x > 0; x--) {
         io.to(`${roomId}`).emit('message', { eventName: "color", data: { message: `${lobbyId}:${x}:STARTING` } });
@@ -59,8 +91,11 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
 
     recurLobbyData.status = 2;
     setCurrentLobby(roomId, recurLobbyData);
-    io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${JSON.stringify(result)}:RESULT` } });
-    await sleep(2000);
+
+    for (let w = 1; w <= resultDelay; w++) {
+        io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${JSON.stringify(result)}:RESULT` } });
+        await sleep(1000);
+    };
 
     await settleBet(io, result, roomId);
 
@@ -80,10 +115,14 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
         end_delay,
         result
     };
+    if (roomWiseHistory[roomId].length == 100) {
+        roomWiseHistory[roomId].pop();
+    }
+    roomWiseHistory[roomId].unshift(result);
+    updateProbs();
 
-    io.to(`${roomId}`).emit('message', { eventName: "history", data: { message: JSON.stringify({ roomId: history.roomId, result }) } });
+    io.to(`${roomId}`).emit('message', { eventName: "history", data: { lobbyId, result, roomId, colorProbs: roomColorProbs[roomId] } });
     logger.info(JSON.stringify(history));
-    // await insertLobbies(history);
-
+    await insertLobbies(history);
     return initLobby(io, roomId);
 };

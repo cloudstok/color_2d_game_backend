@@ -109,7 +109,7 @@ export interface LobbyInsertData {
     roomId: number;
     start_delay: number;
     end_delay: number;
-    result: string[];
+    result: number[];
     time?: Date;
 };
 
