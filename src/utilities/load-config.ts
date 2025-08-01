@@ -1,5 +1,5 @@
 import { read } from './db-connection';
-import { SingleRoomDetail } from './helper-function';
+import { SingleRoomDetail } from '../interfaces/index';
 
 export const variableConfig: {
     games_templates: SingleRoomDetail[] | []
