@@ -178,6 +178,7 @@ export type BetResult = {
     winAmt: number;
     mult: number;
     status: 'win' | 'loss';
+    isBonus: Boolean
 };
 
 export interface UsersBet {
@@ -220,4 +221,16 @@ export interface AccountsResult {
     txn_id?: string;
     status: boolean;
     type: WebhookKey
+};
+
+export interface SingleRoomDetail {
+    roomId: number;
+    chips: number[];
+    min: number;
+    max: number;
+    clrMax: number;
+    clrMin: number;
+    cmbMax: number;
+    cmbMin: number;
+    plCnt: number;
 };

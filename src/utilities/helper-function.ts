@@ -1,7 +1,7 @@
 import { Socket } from 'socket.io';
 import { createLogger } from './logger';
-import { BetEvent, BetResult, WinningDetails } from '../interfaces';
-import { roomPlayerCount } from '../module/lobbies/lobby-event';
+import { BetEvent, BetResult, SingleRoomDetail, WinningDetails } from '../interfaces';
+import { bonuses, roomPlayerCount } from '../module/lobbies/lobby-event';
 import { variableConfig } from './load-config';
 import { read } from './db-connection';
 const failedBetLogger = createLogger('failedBets', 'jsonl');
@@ -45,46 +45,98 @@ export const getUserIP = (socket: any): string => {
 const mults = {
     clrMult: 2,
     combMult: 5
-}
-
-export const getBetResult = (btAmt: number, chip: string, result: number[]): BetResult => {
-
-    const resultData: BetResult = {
-        chip,
-        btAmt,
-        winAmt: 0,
-        mult: 0.00,
-        status: 'loss'
-    };
-
-    const chipData = chip.split('-').map(Number);
-    if (chipData.length == 1) {
-        if (result.includes(chipData[0])) {
-            resultData.mult = mults.clrMult;
-            resultData.status = 'win';
-            resultData.winAmt = resultData.btAmt * resultData.mult;
-        }
-    };
-    if (chipData.length > 1) {
-        if (result.includes(chipData[0]) && result.includes(chipData[1])) {
-            resultData.mult = mults.combMult;
-            resultData.status = 'win';
-            resultData.winAmt = resultData.btAmt * resultData.mult;
-        }
-    }
-    return resultData;
 };
 
-export interface SingleRoomDetail {
-    roomId: number;
-    chips: number[];
-    min: number;
-    max: number;
-    clrMax: number;
-    clrMin: number;
-    cmbMax: number;
-    cmbMin: number;
-    plCnt: number;
+const numCombs: { [key: string]: number } = {
+    '1-2': 7,
+    '2-3': 8,
+    '4-5': 9,
+    '5-6': 10,
+    '1-4': 11,
+    '2-5': 12,
+    '3-6': 13,
+    '1-3': 14,
+    '4-6': 15,
+    '3-5': 16,
+    '6-2': 17,
+    '1-5': 18,
+    '4-2': 19,
+    '3-4': 20,
+    '6-1': 21
+};
+
+// export const getBetResult = (btAmt: number, chip: string, result: number[], roomId: number): BetResult => {
+
+//     const resultData: BetResult = {
+//         chip,
+//         btAmt,
+//         winAmt: 0,
+//         mult: 0.00,
+//         status: 'loss',
+//         isBonus: false
+//     };
+
+//     const chipData = chip.split('-').map(Number);
+//     if (chipData.length == 1) {
+//         if (result.includes(chipData[0])) {
+//             resultData.mult = mults.clrMult;
+//             resultData.status = 'win';
+//             resultData.winAmt = resultData.btAmt * resultData.mult;
+//             if (bonuses[roomId].includes(chipData[0])) {
+//                 resultData.mult *= 2;
+//                 resultData.winAmt *= 2;
+//                 resultData.isBonus = true;
+//             }
+//         }
+//     };
+//     if (chipData.length > 1) {
+//         if (result.includes(chipData[0]) && result.includes(chipData[1])) {
+//             resultData.mult = mults.combMult;
+//             resultData.status = 'win';
+//             resultData.winAmt = resultData.btAmt * resultData.mult;
+//             if (numCombs[chip] && bonuses[roomId].includes(numCombs[chip])) {
+//                 resultData.mult *= 2;
+//                 resultData.winAmt *= 2;
+//                 resultData.isBonus = true;
+//             }
+//         }
+//     }
+//     return resultData;
+// };
+
+export const getBetResult = (btAmt: number, chip: string, result: number[], roomId: number): BetResult => {
+    const chipNumbers = chip.split('-').map(Number);
+    const isSingle = chipNumbers.length === 1;
+
+    let mult = 0;
+    let status: BetResult["status"] = 'loss';
+    let isBonus = false;
+
+    const isWinning =
+        (isSingle && result.includes(chipNumbers[0])) ||
+        (!isSingle && result.includes(chipNumbers[0]) && result.includes(chipNumbers[1]));
+
+    if (isWinning) {
+        mult = isSingle ? mults.clrMult : mults.combMult;
+        status = 'win';
+
+        const bonusNum = isSingle ? chipNumbers[0] : numCombs[chip];
+        if (bonuses[roomId].includes(bonusNum)) {
+            mult *= 2;
+            isBonus = true;
+        }
+    }
+
+    const winAmt = btAmt * mult;
+
+    return {
+        chip,
+        btAmt,
+        winAmt,
+        mult,
+        status,
+        isBonus
+    };
 };
 
 const roomDetails: SingleRoomDetail[] = [

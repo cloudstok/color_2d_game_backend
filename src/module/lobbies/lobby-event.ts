@@ -32,6 +32,29 @@ export const roomColorProbs: { [key: number]: { [key: number]: number } } = {
     104: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
 };
 
+export const bonuses: { [key: number]: number[] } = {
+    101: [],
+    102: [],
+    103: [],
+    104: []
+};
+
+function updateBonus() {
+    for (let bonus in bonuses) {
+        const bonusCount = Math.floor(Math.random() * 4) + 1;
+        while (bonuses[bonus].length < bonusCount) {
+            const randomIndex = Math.floor(Math.random() * 21) + 1;
+            if (!bonuses[bonus].includes(randomIndex)) bonuses[bonus].push(randomIndex);
+        }
+    }
+};
+
+function resetBonus() {
+    for (let bonus in bonuses) {
+        bonuses[bonus].length = 0;
+    }
+}
+
 function updateProbs() {
     for (let room in roomColorProbs) {
         roomColorProbs[room] = getNumberPercentages(roomWiseHistory[room]);
@@ -83,6 +106,7 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
 
     recurLobbyData.status = 1;
     setCurrentLobby(roomId, recurLobbyData);
+    updateBonus();
 
     for (let y = 1; y <= mid_delay; y++) {
         io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${y}:CALCULATING` } })
@@ -92,8 +116,11 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
     recurLobbyData.status = 2;
     setCurrentLobby(roomId, recurLobbyData);
 
+    io.to(`${roomId}`).emit('message', { eventName: 'bnDtl', data: bonuses[roomId] });
+    await sleep(1000);
+
     for (let w = 1; w <= resultDelay; w++) {
-        io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${JSON.stringify(result)}:RESULT` } });
+        io.to(`${roomId}`).emit('message', { eventName: 'color', data: { message: `${lobbyId}:${JSON.stringify(result)}:RESULT:${w}` } });
         await sleep(1000);
     };
 
@@ -120,6 +147,7 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
     }
     roomWiseHistory[roomId].unshift(result);
     updateProbs();
+    resetBonus();
 
     io.to(`${roomId}`).emit('message', { eventName: "history", data: { lobbyId, result, roomId, colorProbs: roomColorProbs[roomId] } });
     logger.info(JSON.stringify(history));

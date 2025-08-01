@@ -127,7 +127,7 @@ export const reconnect = async (io: Server, socket: Socket, playerDetails: Final
             io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
             eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom });
             setTimeout(() => {
-                eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 21), colorProbs: roomColorProbs[Number(existingRoom)] });
+                eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 21), colorProbs: Object.values(roomColorProbs[Number(existingRoom)]) });
             }, 1500);
         };
     } catch (err) {
@@ -197,7 +197,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
                 };
             }
 
-            if (chips.length > 1) {
+            if (chips.length === 2) {
                 chips.map((e: number) => {
                     if (!numberChips.includes(e)) {
                         isBetInvalid = true;
@@ -208,6 +208,8 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
                     break;
                 }
             }
+
+            if (chip.length > 2) isBetInvalid = true; break;
         };
 
         if (isBetInvalid) {
@@ -271,7 +273,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
             let finalAmount = 0;
             const betResults: BetResult[] = [];
             userBets?.forEach(({ btAmt, chip }) => {
-                const roundResult = getBetResult(btAmt, chip, result);
+                const roundResult = getBetResult(btAmt, chip, result, roomId);
                 betResults.push(roundResult);
                 if (roundResult.mult > 0) {
                     finalAmount += roundResult.winAmt;
