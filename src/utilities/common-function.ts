@@ -88,7 +88,7 @@ export const prepareDataForWebhook = async (betObj: BetsData, key: WebhookKey): 
     if (key == 'DEBIT') return {
       ...baseData,
       amount: amountFormatted,
-      description: `${Number(bet_amount).toFixed(2)} debited for Rapid Roulette game for Round ${id}`,
+      description: `${Number(bet_amount).toFixed(2)} debited for Color 2D game for Round ${id}`,
       bet_id,
       txn_type: 0
     }
@@ -96,7 +96,7 @@ export const prepareDataForWebhook = async (betObj: BetsData, key: WebhookKey): 
       ...baseData,
       amount: winning_amount,
       txn_ref_id: txn_id,
-      description: `${Number(winning_amount).toFixed(2)} credited for Rapid Roulette game for Round ${id}`,
+      description: `${Number(winning_amount).toFixed(2)} credited for Color 2D game for Round ${id}`,
       txn_type: 1
     }
     else return baseData;

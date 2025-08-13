@@ -50,7 +50,7 @@ export const joinRoom = async (io: Server, socket: Socket, roomId: string) => {
             })
         };
         setTimeout(() => {
-            eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(roomId)].filter((_, index) => index < 21), colorProbs: roomColorProbs[Number(roomId)] });
+            eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(roomId)].filter((_, index) => index < 21), colorProbs: Object.values(roomColorProbs[Number(roomId)]) });
         }, 1500);
         return;
     } catch (err) {
@@ -184,7 +184,9 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
             eventEmitter(socket, 'betError', { message: 'Invalid Room' });
             return;
         }
+
         for (const bet of userBets) {
+
             const { chip, btAmt } = bet;
             ttlBtAmt += btAmt;
             const chips = chip.split('-').map(Number);
@@ -209,7 +211,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
                 }
             }
 
-            if (chip.length > 2) isBetInvalid = true; break;
+            if (chips.length > 2) { isBetInvalid = true; break; }
         };
 
         if (isBetInvalid) {
@@ -223,6 +225,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
             eventEmitter(socket, 'betError', { message: 'Insufficient Balance' });
             return;
         };
+
         betObj['totalBetAmt'] = ttlBtAmt;
 
         const webhookData: AccountsResult = await updateBalanceFromAccount({
