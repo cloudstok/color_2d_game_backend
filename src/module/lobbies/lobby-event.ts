@@ -17,7 +17,7 @@ export const roomPlayerCount: { [key: number]: number } = {
 };
 
 export const roomWiseHistory: {
-    [key: number]: number[][]
+    [key: number]: string[][]
 } = {
     101: [],
     102: [],
@@ -62,8 +62,8 @@ function updateProbs() {
 }
 
 async function generateStats() {
-    const historyDataFromDB: { [key: string]: number[][] } | false = await historyStats();
-    if (!historyDataFromDB) return;
+    const historyDataFromDB: { [key: string]: string[][] } | false = await historyStats();
+    if (!historyDataFromDB || Object.keys(historyDataFromDB).length == 0) return;
     for (let room in roomWiseHistory) {
         roomWiseHistory[Number(room)] = historyDataFromDB[room];
     };
@@ -145,12 +145,16 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
     if (roomWiseHistory[roomId].length == 100) {
         roomWiseHistory[roomId].pop();
     }
-    roomWiseHistory[roomId].unshift(result);
+    const bonusedRes = result.map(e => {
+        if (bonuses[roomId].includes(e)) return `${e}:1`
+        else return `${e}:0`;
+    });
+    roomWiseHistory[roomId].unshift(bonusedRes);
     updateProbs();
     resetBonus();
 
     io.to(`${roomId}`).emit('message', { eventName: "history", data: { lobbyId, result, roomId, colorProbs: roomColorProbs[roomId] } });
     logger.info(JSON.stringify(history));
-    await insertLobbies(history);
+    await insertLobbies({ ...history, bonusedRes });
     return initLobby(io, roomId);
 };

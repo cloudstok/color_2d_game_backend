@@ -121,6 +121,11 @@ export const getBetResult = (btAmt: number, chip: string, result: number[], room
         mult = isSingle ? mults.clrMult : mults.combMult;
         status = 'win';
 
+        if (isSingle) {
+            const colorExistence = result.filter(num => num == chipNumbers[0]).length;
+            mult += (colorExistence - 1);
+        }
+
         const bonusNum = isSingle ? chipNumbers[0] : numCombs[chip];
         if (bonuses[roomId].includes(bonusNum)) {
             mult *= 2;
@@ -199,7 +204,7 @@ export const getRooms = () => {
 export const historyStats = async () => {
     try {
         const historyData = await read(`SELECT room_id, result FROM lobbies ORDER BY created_at DESC LIMIT 400`);
-        const filteredData: { [key: number]: number[][] } = {};
+        const filteredData: { [key: number]: string[][] } = {};
         historyData.map(e => {
             const { room_id, result } = e;
             if (!filteredData[room_id]) filteredData[room_id] = [JSON.parse(result)];
@@ -212,15 +217,16 @@ export const historyStats = async () => {
     }
 }
 
-export function getNumberPercentages(data: number[][]) {
+export function getNumberPercentages(data: string[][]) {
     const count: { [key: number]: number } = {
         1: 0, 2: 0, 3: 0,
         4: 0, 5: 0, 6: 0
     };
 
     let total = 0;
+    const resData = data.map(e => e.map(el => Number(el.split(':')[0])));
 
-    for (const row of data) {
+    for (const row of resData) {
         for (const num of row) {
             if (num >= 1 && num <= 6) {
                 count[num]++;

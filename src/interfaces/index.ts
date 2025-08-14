@@ -111,6 +111,7 @@ export interface LobbyInsertData {
     end_delay: number;
     result: number[];
     time?: Date;
+    bonusedRes: string[]
 };
 
 export interface SingleBetObject {
