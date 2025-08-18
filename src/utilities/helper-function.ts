@@ -66,45 +66,6 @@ const numCombs: { [key: string]: number } = {
     '6-1': 21
 };
 
-// export const getBetResult = (btAmt: number, chip: string, result: number[], roomId: number): BetResult => {
-
-//     const resultData: BetResult = {
-//         chip,
-//         btAmt,
-//         winAmt: 0,
-//         mult: 0.00,
-//         status: 'loss',
-//         isBonus: false
-//     };
-
-//     const chipData = chip.split('-').map(Number);
-//     if (chipData.length == 1) {
-//         if (result.includes(chipData[0])) {
-//             resultData.mult = mults.clrMult;
-//             resultData.status = 'win';
-//             resultData.winAmt = resultData.btAmt * resultData.mult;
-//             if (bonuses[roomId].includes(chipData[0])) {
-//                 resultData.mult *= 2;
-//                 resultData.winAmt *= 2;
-//                 resultData.isBonus = true;
-//             }
-//         }
-//     };
-//     if (chipData.length > 1) {
-//         if (result.includes(chipData[0]) && result.includes(chipData[1])) {
-//             resultData.mult = mults.combMult;
-//             resultData.status = 'win';
-//             resultData.winAmt = resultData.btAmt * resultData.mult;
-//             if (numCombs[chip] && bonuses[roomId].includes(numCombs[chip])) {
-//                 resultData.mult *= 2;
-//                 resultData.winAmt *= 2;
-//                 resultData.isBonus = true;
-//             }
-//         }
-//     }
-//     return resultData;
-// };
-
 export const getBetResult = (btAmt: number, chip: string, result: number[], roomId: number): BetResult => {
     const chipNumbers = chip.split('-').map(Number);
     const isSingle = chipNumbers.length === 1;
