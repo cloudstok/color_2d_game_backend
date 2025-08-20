@@ -7,6 +7,7 @@ import { setCache, getCache, deleteCache } from '../../utilities/redis-connectio
 import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, getNumberPercentages } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
+import { inPlayUser } from '../../socket';
 const logger = createLogger('Bets', 'jsonl');
 const settlBetLogger = createLogger('Settlement', 'jsonl');
 const erroredLogger = createLogger('ErrorData', 'plain');
@@ -97,6 +98,7 @@ export const disConnect = async (io: Server, socket: Socket) => {
         const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
         if (stringifiedPlayerDetails) {
             const playerDetails: FinalUserData = JSON.parse(stringifiedPlayerDetails);
+            inPlayUser.delete(playerDetails.id)
             const { user_id, operatorId } = playerDetails;
             const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
             if (existingRoom) socket.leave(existingRoom);
@@ -114,7 +116,6 @@ export const disConnect = async (io: Server, socket: Socket) => {
 
 export const reconnect = async (io: Server, socket: Socket, playerDetails: FinalUserData) => {
     try {
-        eventEmitter(socket, 'rmDtl', { halls: getRooms() });
         const { user_id, operatorId } = playerDetails;
         const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
         if (existingRoom) {
@@ -126,11 +127,12 @@ export const reconnect = async (io: Server, socket: Socket, playerDetails: Final
             roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
             io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
-            eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom });
+            eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom, halls: getRooms() });
             setTimeout(() => {
                 eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 22), colorProbs: Object.values(roomColorProbs[Number(existingRoom)]) });
             }, 1500);
-        };
+        }
+        else eventEmitter(socket, 'rmDtl', { halls: getRooms() });
     } catch (err) {
         eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to connect' });
         socket.disconnect(true);
@@ -178,7 +180,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         let ttlBtAmt: number = 0;
         const userBets = betData.userBets;
         const bet_id = `BT:${lobby_id}:${user_id}:${operatorId}`;
-        const betObj: BetsObject = { id, bet_id, user_id, operatorId, token, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
+        const betObj: BetsObject = { id, bet_id, user_id, operatorId, token, lobby_id, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
         const roomData = getRooms().find(room => room.roomId == roomId);
         if (!roomData) {
             logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid Room', 'bet');
@@ -283,8 +285,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
         const settlements: SingleBetObject[] = [];
 
         for (const betData of bets) {
-            const { bet_id, socket_id, game_id, txn_id, userBets, ip, token, totalBetAmt } = betData;
-            const [_, lobby_id, user_id, operator_id] = bet_id.split(':');
+            const { bet_id, socket_id, game_id, txn_id, userBets, ip, token, totalBetAmt, lobby_id, user_id, operatorId } = betData;
             const socket = io.sockets.sockets.get(socket_id);
             let finalAmount = 0;
             const betResults: BetResult[] = [];
@@ -297,7 +298,10 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
             });
 
             settlements.push({
-                bet_id: betData.bet_id,
+                bet_id,
+                lobby_id,
+                user_id,
+                operatorId,
                 betAmount: totalBetAmt,
                 userBets: betResults,
                 roomId,
@@ -309,7 +313,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
 
             if (finalAmount > 0) {
                 const winAmount = Number(Math.min(Number(MAX_CASHOUT), finalAmount)).toFixed(2);
-                const webhookData = await updateBalanceFromAccount({ user_id, winning_amount: winAmount, id: lobby_id, game_id, txn_id: txn_id, ip }, 'CREDIT', { game_id, operatorId: operator_id, token });
+                const webhookData = await updateBalanceFromAccount({ user_id, winning_amount: winAmount, id: lobby_id, game_id, txn_id: txn_id, ip }, 'CREDIT', { game_id, operatorId, token });
                 if (!webhookData.status) console.error('Credit Txn Failed');
 
                 const cachedPlayerDetails = await getCache(`PL:${socket_id}`);
@@ -320,7 +324,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
                     setTimeout(() => {
                         eventEmitter(socket, 'info', {
                             user_id,
-                            operator_id,
+                            operatorId,
                             balance: parsedPlayerDetails.balance,
                             avtr: parsedPlayerDetails.image
                         });

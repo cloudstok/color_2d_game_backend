@@ -9,15 +9,13 @@ export const addSettleBet = async (settlements: SingleBetObject[]): Promise<void
     const finalData: (string | number | undefined)[][] = [];
 
     for (const settlement of settlements) {
-      const { bet_id, betAmount, winAmount, result, userBets, roomId } = settlement;
-
-      const [_, lobby_id, user_id, operator_id] = bet_id.split(':');
+      const { bet_id, betAmount, winAmount, result, userBets, roomId, lobby_id, user_id, operatorId } = settlement;
 
       finalData.push([
         bet_id,
         lobby_id,
         user_id,
-        operator_id,
+        operatorId,
         betAmount,
         JSON.stringify(userBets),
         roomId,
@@ -52,14 +50,13 @@ export const addSettleBet = async (settlements: SingleBetObject[]): Promise<void
 
 export const insertBets = async (betObj: BetsObject): Promise<void> => {
   try {
-    const { bet_id, totalBetAmt, userBets, roomId } = betObj;
-    const [_, lobby_id, user_id, operator_id] = bet_id.split(':');
+    const { bet_id, totalBetAmt, userBets, roomId, lobby_id, user_id, operatorId } = betObj;
 
     await write(SQL_INSERT_BETS, [
       bet_id,
       lobby_id,
       user_id,
-      operator_id,
+      operatorId,
       totalBetAmt,
       JSON.stringify(userBets),
       roomId

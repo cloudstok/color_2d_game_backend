@@ -153,7 +153,7 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
     updateProbs();
     resetBonus();
 
-    io.to(`${roomId}`).emit('message', { eventName: "history", data: { lobbyId, result, roomId, colorProbs: roomColorProbs[roomId] } });
+    io.to(`${roomId}`).emit('message', { eventName: "history", data: { lobbyId, result: bonusedRes, roomId, colorProbs: roomColorProbs[roomId] } });
     logger.info(JSON.stringify(history));
     await insertLobbies({ ...history, bonusedRes });
     return initLobby(io, roomId);
