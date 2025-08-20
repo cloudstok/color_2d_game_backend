@@ -14,6 +14,7 @@ const numberChips = [1, 2, 3, 4, 5, 6];
 
 const lobbies: Record<string | number, CurrentLobbyData> = {};
 const lobbiesBets: Record<string | number, BetsObject[]> = {};
+const { MAX_CASHOUT, MAX_BET_AMOUNT } = process.env;
 
 export const setCurrentLobby = (roomId: number, data: CurrentLobbyData): void => {
     lobbies[roomId] = data;
@@ -127,7 +128,7 @@ export const reconnect = async (io: Server, socket: Socket, playerDetails: Final
             io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
             eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom });
             setTimeout(() => {
-                eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 21), colorProbs: Object.values(roomColorProbs[Number(existingRoom)]) });
+                eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 22), colorProbs: Object.values(roomColorProbs[Number(existingRoom)]) });
             }, 1500);
         };
     } catch (err) {
@@ -183,7 +184,13 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
             logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid Room', 'bet');
             eventEmitter(socket, 'betError', { message: 'Invalid Room' });
             return;
-        }
+        };
+
+        if (userBets.length > 10) {
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Maximum number of bets exceeded', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Invalid Bet' });
+            return;
+        };
 
         for (const bet of userBets) {
 
@@ -213,6 +220,12 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
 
             if (chips.length > 2) { isBetInvalid = true; break; }
         };
+
+        if (ttlBtAmt > Number(MAX_BET_AMOUNT)) {
+            logEventResponse({ betData, ...parsedPlayerDetails }, 'Maximim Bet Amount Exceeded', 'bet');
+            eventEmitter(socket, 'betError', { message: 'Invalid Bet' });
+            return;
+        }
 
         if (isBetInvalid) {
             logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid Bet', 'bet');
@@ -295,7 +308,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
             settlBetLogger.info(JSON.stringify({ betData, finalAmount, result }));
 
             if (finalAmount > 0) {
-                const winAmount = Number(finalAmount).toFixed(2);
+                const winAmount = Number(Math.min(Number(MAX_CASHOUT), finalAmount)).toFixed(2);
                 const webhookData = await updateBalanceFromAccount({ user_id, winning_amount: winAmount, id: lobby_id, game_id, txn_id: txn_id, ip }, 'CREDIT', { game_id, operatorId: operator_id, token });
                 if (!webhookData.status) console.error('Credit Txn Failed');
 
