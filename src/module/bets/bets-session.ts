@@ -328,7 +328,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
                             balance: parsedPlayerDetails.balance,
                             avtr: parsedPlayerDetails.image
                         });
-                    }, 500);
+                    }, 4000);
                 };
                 eventEmitter(socket, 'settlement', { message: `You Win ${winAmount}`, mywinningAmount: winAmount, status: 'WIN', roundResult: result, betResults, lobby_id });
             } else {
