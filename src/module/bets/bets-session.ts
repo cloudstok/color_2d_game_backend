@@ -346,7 +346,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
                     setTimeout(() => {
                         eventEmitter(socket, 'info', {
                             user_id,
-                            operatorId,
+                            operator_id: operatorId,
                             balance: parsedPlayerDetails.balance,
                             avtr: parsedPlayerDetails.image
                         });
