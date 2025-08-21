@@ -114,6 +114,28 @@ export const disConnect = async (io: Server, socket: Socket) => {
     }
 };
 
+export const roomStats = async (io: Server, socket: Socket) => {
+    try {
+        const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
+        if (!stringifiedPlayerDetails) {
+            eventEmitter(socket, 'betError', { message: 'Invalid Player details' });
+            return;
+        };
+        const playerDetails: PlayerDetail = JSON.parse(stringifiedPlayerDetails);
+        const { user_id, operatorId } = playerDetails;
+        const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
+        if (!existingRoom) {
+            eventEmitter(socket, 'betError', { message: 'user deos not exist in any room' });
+            return;
+        };
+        eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 22), colorProbs: Object.values(roomColorProbs[Number(existingRoom)]) });
+        return;
+    } catch (err) {
+        eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to fetch room stats' });
+        return;
+    }
+}
+
 export const reconnect = async (io: Server, socket: Socket, playerDetails: FinalUserData) => {
     try {
         const { user_id, operatorId } = playerDetails;
