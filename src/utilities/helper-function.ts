@@ -1,6 +1,6 @@
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { createLogger } from './logger';
-import { BetEvent, BetResult, SingleRoomDetail, WinningDetails } from '../interfaces';
+import { BetEvent, BetResult, SingleBetObject, SingleRoomDetail, TopWinner } from '../interfaces';
 import { bonuses, roomPlayerCount } from '../module/lobbies/lobby-event';
 import { variableConfig } from './load-config';
 import { read } from './db-connection';
@@ -202,4 +202,91 @@ export function getNumberPercentages(data: string[][]) {
     }
 
     return percentages;
+}
+
+export let biggestWinners: TopWinner[] = [{
+    userId: 'd***0',
+    winAmt: 0.00
+},
+{
+    userId: 'e***0',
+    winAmt: 0.00
+},
+{
+    userId: 't***0',
+    winAmt: 0.00
+}
+];
+
+export let highestWinners: TopWinner[] = [{
+    userId: 'f***0',
+    mult: 0.00,
+    winAmt: 0.00
+},
+{
+    userId: 'g***0',
+    mult: 0.00,
+    winAmt: 0.00
+},
+{
+    userId: 'h***0',
+    mult: 0.00,
+    winAmt: 0.00
+}
+];
+
+export function updateWinners(results: SingleBetObject[]) {
+    const highWins: TopWinner[] = [];
+    const bigWins: TopWinner[] = [];
+
+    results.forEach(e => {
+        if (e.winAmount) {
+            const winAmt = Number(e.winAmount);
+            const mult = e.userBets.reduce((a, b) => a + Number(b.mult), 0);
+
+            highWins.push({ userId: e.user_id, mult, winAmt });
+            bigWins.push({ userId: e.user_id, winAmt });
+        }
+    });
+
+    const sortedHighWin = [...highWins]
+        .sort((a, b) => (b.mult ?? 0) - (a.mult ?? 0))
+        .slice(0, 3);
+
+    const sortedBigWin = [...bigWins]
+        .sort((a, b) => Number(b.winAmt) - Number(a.winAmt))
+        .slice(0, 3);
+
+    highestWinners = updateUniversalWinners(highestWinners, sortedHighWin, 'mult');
+    biggestWinners = updateUniversalWinners(biggestWinners, sortedBigWin, 'winAmt');
+};
+
+function updateUniversalWinners(universalWinners: TopWinner[], newRoundWinners: TopWinner[], key: string) {
+    const merged = [...universalWinners, ...newRoundWinners];
+
+    const uniqueMap = new Map();
+    for (const winner of merged) {
+        if (!uniqueMap.has(winner.userId) || uniqueMap.get(winner.userId)[key] < winner[key]) {
+            uniqueMap.set(winner.userId, winner);
+        }
+    }
+
+    const sorted = Array.from(uniqueMap.values()).sort((a, b) => b[key] - a[key]);
+
+    return sorted.slice(0, 3);
+};
+
+export function emitWinnersStats(io: Server) {
+    io.emit('message', {
+        eventName: 'wnSts', data: {
+            highWns: highestWinners.map(e => {
+                const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                return highWinsObj
+            }),
+            bgWns: biggestWinners.map(e => {
+                const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                return bigWinsObj;
+            })
+        }
+    });
 }

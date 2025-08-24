@@ -127,6 +127,13 @@ export interface SingleBetObject {
     winAmount?: string | number;
 };
 
+export interface TopWinner {
+    userId: string;
+    mult?: number;
+    winAmt: number;
+    [key: string]: any
+};
+
 export interface PlayerDetail {
     id: string;
     user_id: string;

@@ -2,9 +2,8 @@ import { Server as IOServer, Server, Socket } from 'socket.io';
 import { updateBalanceFromAccount } from '../../utilities/common-function';
 import { addSettleBet, insertBets } from './bets-db';
 import { roomColorProbs, roomPlayerCount, roomWiseHistory } from '../lobbies/lobby-event';
-import { appConfig } from '../../utilities/app-config';
 import { setCache, getCache, deleteCache } from '../../utilities/redis-connection';
-import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, getNumberPercentages } from '../../utilities/helper-function';
+import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, updateWinners, emitWinnersStats } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
 import { inPlayUser } from '../../socket';
@@ -358,7 +357,8 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
             }
         }
 
-
+        updateWinners(settlements);
+        emitWinnersStats(io);
         await addSettleBet(settlements);
         delete lobbiesBets[roomId];
     } catch (error) {
