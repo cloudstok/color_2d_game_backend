@@ -6,7 +6,7 @@ function getImageValue(id: string): number {
   for (const char of id) {
     sum += char.charCodeAt(0);
   }
-  return sum % 10;
+  return (sum % 7) + 1;
 }
 
 export const getUserDataFromSource = async (
