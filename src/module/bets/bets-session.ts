@@ -3,7 +3,7 @@ import { updateBalanceFromAccount } from '../../utilities/common-function';
 import { addSettleBet, insertBets } from './bets-db';
 import { roomColorProbs, roomPlayerCount, roomWiseHistory } from '../lobbies/lobby-event';
 import { setCache, getCache, deleteCache } from '../../utilities/redis-connection';
-import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, updateWinners, emitWinnersStats } from '../../utilities/helper-function';
+import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, updateWinners, emitWinnersStats, highestWinners, biggestWinners } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
 import { inPlayUser } from '../../socket';
@@ -51,7 +51,16 @@ export const joinRoom = async (io: Server, socket: Socket, roomId: string) => {
             })
         };
         setTimeout(() => {
-            eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(roomId)].filter((_, index) => index < 21), colorProbs: Object.values(roomColorProbs[Number(roomId)]) });
+            eventEmitter(socket, 'rmSts', {
+                historyData: roomWiseHistory[Number(roomId)].filter((_, index) => index < 21), colorProbs: Object.values(roomColorProbs[Number(roomId)]), highWns: highestWinners.map(e => {
+                    const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                    return highWinsObj
+                }),
+                bgWns: biggestWinners.map(e => {
+                    const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                    return bigWinsObj;
+                })
+            });
         }, 1500);
         return;
     } catch (err) {
