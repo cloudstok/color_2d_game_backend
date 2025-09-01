@@ -119,6 +119,7 @@ export interface SingleBetObject {
     lobby_id: string;
     user_id: string;
     operatorId: string;
+    image: number;
     betAmount: number;
     userBets: BetResult[];
     result: number[];
@@ -130,6 +131,7 @@ export interface SingleBetObject {
 export interface TopWinner {
     userId: string;
     mult?: number;
+    image: number;
     winAmt: number;
     [key: string]: any
 };
@@ -206,6 +208,7 @@ export interface BetsObject {
     token: string;
     socket_id: string;
     game_id: string;
+    image: number;
     roomId: number;
     ip?: string;
     userBets: UsersBet[];

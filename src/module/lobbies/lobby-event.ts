@@ -3,7 +3,7 @@ import { insertLobbies } from './lobbies-db';
 import { createLogger } from '../../utilities/logger';
 import { LobbyData, LobbyStatusData } from '../../interfaces';
 import { setCurrentLobby, settleBet } from '../bets/bets-session';
-import { getNumberPercentages, historyStats } from '../../utilities/helper-function';
+import { emitWinnersStats, getNumberPercentages, historyStats } from '../../utilities/helper-function';
 
 const logger = createLogger('Color_Game_2D', 'jsonl');
 
@@ -128,6 +128,7 @@ const initLobby = async (io: IOServer, roomId: number): Promise<void> => {
 
     recurLobbyData.status = 3;
     setCurrentLobby(roomId, recurLobbyData);
+    emitWinnersStats(io);
 
     for (let z = 1; z <= end_delay; z++) {
         io.to(`${roomId}`).emit('message', { eventName: "color", data: { message: `${lobbyId}:${z}:ENDED` } });

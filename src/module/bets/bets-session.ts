@@ -3,7 +3,7 @@ import { updateBalanceFromAccount } from '../../utilities/common-function';
 import { addSettleBet, insertBets } from './bets-db';
 import { roomColorProbs, roomPlayerCount, roomWiseHistory } from '../lobbies/lobby-event';
 import { setCache, getCache, deleteCache } from '../../utilities/redis-connection';
-import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, updateWinners, emitWinnersStats, highestWinners, biggestWinners } from '../../utilities/helper-function';
+import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, updateWinners, highestWinners, biggestWinners } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
 
@@ -52,12 +52,13 @@ export const joinRoom = async (io: Server, socket: Socket, roomId: string) => {
         };
         setTimeout(() => {
             eventEmitter(socket, 'rmSts', {
-                historyData: roomWiseHistory[Number(roomId)].filter((_, index) => index < 21), colorProbs: Object.values(roomColorProbs[Number(roomId)]), highWns: highestWinners.map(e => {
-                    const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                historyData: roomWiseHistory[Number(roomId)].filter((_, index) => index < 21), colorProbs: Object.values(roomColorProbs[Number(roomId)]),
+                highWns: highestWinners.map(e => {
+                    const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
                     return highWinsObj
                 }),
                 bgWns: biggestWinners.map(e => {
-                    const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                    const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
                     return bigWinsObj;
                 })
             });
@@ -135,7 +136,18 @@ export const roomStats = async (io: Server, socket: Socket) => {
             eventEmitter(socket, 'betError', { message: 'user deos not exist in any room' });
             return;
         };
-        eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 22), colorProbs: Object.values(roomColorProbs[Number(existingRoom)]) });
+        eventEmitter(socket, 'rmSts', {
+            historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 22),
+            colorProbs: Object.values(roomColorProbs[Number(existingRoom)]),
+            highWns: highestWinners.map(e => {
+                const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
+                return highWinsObj
+            }),
+            bgWns: biggestWinners.map(e => {
+                const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
+                return bigWinsObj;
+            })
+        });
         return;
     } catch (err) {
         eventEmitter(socket, 'betError', { message: 'Something went wrong, unable to fetch room stats' });
@@ -158,7 +170,18 @@ export const reconnect = async (io: Server, socket: Socket, playerDetails: Final
             io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
             eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom, halls: getRooms() });
             setTimeout(() => {
-                eventEmitter(socket, 'rmSts', { historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 22), colorProbs: Object.values(roomColorProbs[Number(existingRoom)]) });
+                eventEmitter(socket, 'rmSts', {
+                    historyData: roomWiseHistory[Number(existingRoom)].filter((_, index) => index < 22),
+                    colorProbs: Object.values(roomColorProbs[Number(existingRoom)]),
+                    highWns: highestWinners.map(e => {
+                        const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
+                        return highWinsObj
+                    }),
+                    bgWns: biggestWinners.map(e => {
+                        const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
+                        return bigWinsObj;
+                    })
+                });
             }, 1500);
         }
         else eventEmitter(socket, 'rmDtl', { halls: getRooms() });
@@ -179,7 +202,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         }
 
         const parsedPlayerDetails: PlayerDetail = JSON.parse(playerDetailsStr);
-        const { id, user_id, operatorId, token, game_id, balance } = parsedPlayerDetails;
+        const { id, user_id, operatorId, token, game_id, balance, image } = parsedPlayerDetails;
         const lobby_id = betData.lobbyId;
         const [time, roomId] = lobby_id.split('-').map(Number);
 
@@ -209,7 +232,7 @@ export const placeBet = async (socket: Socket, betData: BetReqData) => {
         let ttlBtAmt: number = 0;
         const userBets = betData.userBets;
         const bet_id = `BT:${lobby_id}:${user_id}:${operatorId}`;
-        const betObj: BetsObject = { id, bet_id, user_id, operatorId, token, lobby_id, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
+        const betObj: BetsObject = { id, bet_id, user_id, operatorId, token, image, lobby_id, socket_id: parsedPlayerDetails.socketId, game_id, roomId, userBets, totalBetAmt: 0, ip: getUserIP(socket) };
         const roomData = getRooms().find(room => room.roomId == roomId);
         if (!roomData) {
             logEventResponse({ betData, ...parsedPlayerDetails }, 'Invalid Room', 'bet');
@@ -314,7 +337,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
         const settlements: SingleBetObject[] = [];
 
         for (const betData of bets) {
-            const { bet_id, socket_id, game_id, txn_id, userBets, ip, token, totalBetAmt, lobby_id, user_id, operatorId } = betData;
+            const { bet_id, socket_id, game_id, txn_id, userBets, ip, token, totalBetAmt, image, lobby_id, user_id, operatorId } = betData;
             const socket = io.sockets.sockets.get(socket_id);
             let finalAmount = 0;
             const betResults: BetResult[] = [];
@@ -330,6 +353,7 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
                 bet_id,
                 lobby_id,
                 user_id,
+                image,
                 operatorId,
                 betAmount: totalBetAmt,
                 userBets: betResults,
@@ -366,7 +390,6 @@ export const settleBet = async (io: IOServer, result: number[], roomId: number):
         }
 
         updateWinners(settlements);
-        emitWinnersStats(io);
         await addSettleBet(settlements);
         delete lobbiesBets[roomId];
     } catch (error) {

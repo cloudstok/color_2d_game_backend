@@ -206,32 +206,38 @@ export function getNumberPercentages(data: string[][]) {
 
 export let biggestWinners: TopWinner[] = [{
     userId: 'd***0',
-    winAmt: 0.00
+    winAmt: 0.00,
+    image: 1
 },
 {
     userId: 'e***0',
-    winAmt: 0.00
+    winAmt: 0.00,
+    image: 2
 },
 {
     userId: 't***0',
-    winAmt: 0.00
+    winAmt: 0.00,
+    image: 3
 }
 ];
 
 export let highestWinners: TopWinner[] = [{
     userId: 'f***0',
     mult: 0.00,
-    winAmt: 0.00
+    winAmt: 0.00,
+    image: 4
 },
 {
     userId: 'g***0',
     mult: 0.00,
-    winAmt: 0.00
+    winAmt: 0.00,
+    image: 5
 },
 {
     userId: 'h***0',
     mult: 0.00,
-    winAmt: 0.00
+    winAmt: 0.00,
+    image: 6
 }
 ];
 
@@ -244,8 +250,8 @@ export function updateWinners(results: SingleBetObject[]) {
             const winAmt = Number(e.winAmount);
             const mult = e.userBets.reduce((a, b) => a + Number(b.mult), 0);
 
-            highWins.push({ userId: e.user_id, mult, winAmt });
-            bigWins.push({ userId: e.user_id, winAmt });
+            highWins.push({ userId: e.user_id, mult, winAmt, image: e.image });
+            bigWins.push({ userId: e.user_id, winAmt, image: e.image });
         }
     });
 
