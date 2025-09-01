@@ -6,7 +6,7 @@ import { setCache, getCache, deleteCache } from '../../utilities/redis-connectio
 import { logEventResponse, getUserIP, getBetResult, eventEmitter, getRooms, updateWinners, emitWinnersStats, highestWinners, biggestWinners } from '../../utilities/helper-function';
 import { createLogger } from '../../utilities/logger';
 import { AccountsResult, BetReqData, BetResult, BetsObject, CurrentLobbyData, FinalUserData, PlayerDetail, SingleBetObject } from '../../interfaces';
-import { inPlayUser } from '../../socket';
+
 const logger = createLogger('Bets', 'jsonl');
 const settlBetLogger = createLogger('Settlement', 'jsonl');
 const erroredLogger = createLogger('ErrorData', 'plain');
@@ -106,7 +106,6 @@ export const disConnect = async (io: Server, socket: Socket) => {
         const stringifiedPlayerDetails = await getCache(`PL:${socket.id}`);
         if (stringifiedPlayerDetails) {
             const playerDetails: FinalUserData = JSON.parse(stringifiedPlayerDetails);
-            inPlayUser.delete(playerDetails.id)
             const { user_id, operatorId } = playerDetails;
             const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
             if (existingRoom) socket.leave(existingRoom);
