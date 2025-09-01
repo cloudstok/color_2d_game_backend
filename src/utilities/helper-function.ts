@@ -286,11 +286,11 @@ export function emitWinnersStats(io: Server) {
     io.emit('message', {
         eventName: 'wnSts', data: {
             highWns: highestWinners.map(e => {
-                const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                const highWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
                 return highWinsObj
             }),
             bgWns: biggestWinners.map(e => {
-                const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt };
+                const bigWinsObj = { userId: `${e.userId[0]}***${e.userId.slice(-1)}`, winAmt: e.winAmt, image: e.image };
                 return bigWinsObj;
             })
         }
