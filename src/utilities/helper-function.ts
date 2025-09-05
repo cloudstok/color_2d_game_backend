@@ -206,17 +206,17 @@ export function getNumberPercentages(data: string[][]) {
 
 export let biggestWinners: TopWinner[] = [{
     userId: 'd***0',
-    winAmt: 0.00,
+    winAmt: 300.00,
     image: 1
 },
 {
     userId: 'e***0',
-    winAmt: 0.00,
+    winAmt: 200.00,
     image: 2
 },
 {
     userId: 't***0',
-    winAmt: 0.00,
+    winAmt: 100.00,
     image: 3
 }
 ];
@@ -224,19 +224,19 @@ export let biggestWinners: TopWinner[] = [{
 export let highestWinners: TopWinner[] = [{
     userId: 'f***0',
     mult: 0.00,
-    winAmt: 0.00,
+    winAmt: 300.00,
     image: 4
 },
 {
     userId: 'g***0',
     mult: 0.00,
-    winAmt: 0.00,
+    winAmt: 200.00,
     image: 5
 },
 {
     userId: 'h***0',
     mult: 0.00,
-    winAmt: 0.00,
+    winAmt: 100.00,
     image: 6
 }
 ];

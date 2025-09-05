@@ -40,7 +40,7 @@ export const joinRoom = async (io: Server, socket: Socket, roomId: string) => {
             return;
         };
 
-        roomPlayerCount[Number(roomId)]++;
+        if (roomPlayerCount[Number(roomId)]) roomPlayerCount[Number(roomId)]++;
         socket.join(roomId);
         io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
         await setCache(`rm-${operatorId}:${user_id}`, roomId);
@@ -89,7 +89,7 @@ export const exitRoom = async (io: Server, socket: Socket, roomId: string) => {
             return;
         };
         socket.leave(roomId);
-        roomPlayerCount[Number(roomId)]--
+        if (roomPlayerCount[Number(roomId)]) roomPlayerCount[Number(roomId)]--
         io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
         await deleteCache(`rm-${operatorId}:${user_id}`);
         eventEmitter(socket, 'lvRm', { message: 'Room left successfully', roomId });
@@ -111,7 +111,7 @@ export const disConnect = async (io: Server, socket: Socket) => {
             const existingRoom = await getCache(`rm-${operatorId}:${user_id}`);
             if (existingRoom) socket.leave(existingRoom);
             await deleteCache(`PL:${socket.id}`);
-            roomPlayerCount[Number(existingRoom)]--;
+            if (roomPlayerCount[Number(existingRoom)]) roomPlayerCount[Number(existingRoom)]--;
             io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
             socket.disconnect(true);
             return;
@@ -165,7 +165,7 @@ export const reconnect = async (io: Server, socket: Socket, playerDetails: Final
                     if (e.user_id == user_id && e.operatorId == operatorId) e.socket_id = socket.id;
                 });
             };
-            roomPlayerCount[Number(existingRoom)]++;
+            if (roomPlayerCount[Number(existingRoom)]) roomPlayerCount[Number(existingRoom)]++;
             socket.join(existingRoom);
             io.emit('message', { eventName: 'plCnt', data: roomPlayerCount });
             eventEmitter(socket, 'rn', { message: 'redirected to existing room', roomId: existingRoom, halls: getRooms() });
